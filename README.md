@@ -63,11 +63,11 @@ python manage.py runserver
 
 ## 설정된 기능
 
-- ✅ Django REST Framework
-- ✅ CORS 헤더 설정 (localhost:3000, localhost:8080 허용)
-- ✅ 기본 인증 (SessionAuthentication)
-- ✅ 페이지네이션 (10개 단위)
-- ✅ 한국어/한국 시간대 설정
+- Django REST Framework
+- CORS 헤더 설정 (localhost:3000, localhost:8080 허용)
+- 기본 인증 (SessionAuthentication)
+- 페이지네이션 (10개 단위)
+- 한국어/한국 시간대 설정
 
 ## 테스트 실행
 

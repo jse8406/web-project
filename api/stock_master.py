@@ -5,6 +5,7 @@ import websockets
 from channels.layers import get_channel_layer
 from .serializers import StockRequestSerializer, StockResponseSerializer, StockAskingPriceResponseSerializer
 from dotenv import load_dotenv
+from auth.kis_auth import get_approval_key
 
 # .env 로드 (consumers.py와 동일)
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -41,19 +42,10 @@ class StockMaster:
         self.task = None
 
     async def get_approval_key(self):
-        """consumers.py의 로직을 가져옴 (간소화)"""
-        # 순환 참조 방지를 위해 여기서 import하거나, 소비자에서 넘겨받을 수도 있지만 독립적으로 구현
-        import requests
-        url = "https://openapi.koreainvestment.com:9443/oauth2/Approval"
-        payload = {"grant_type": "client_credentials", "appkey": APP_KEY, "secretkey": APP_SECRET}
-        try:
-            r = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
-            if r.status_code == 200:
-                body = r.json()
-                return body.get("approval_key") or body.get("approvalKey")
-        except Exception as e:
-            print(f"[StockMaster] Key Issue Error: {e}")
-        return None
+        # 동기 함수이므로 run_in_executor로 실행
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, get_approval_key)
 
     async def connect_and_run(self):
         """마스터 연결 시작"""

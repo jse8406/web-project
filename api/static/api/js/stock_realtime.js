@@ -1,17 +1,123 @@
 const StockApp = {
+    stockList: [], // 자동완성용 종목 리스트
     version: "1.1", // For cache verification
     socket: null,
     stockCode: null,
+
 
     init: function () {
         console.log(`StockApp Initialized (Version ${this.version})`);
         this.cacheDOM();
         this.bindEvents();
-        this.connectWS();
+        // 종목 리스트 json 불러오기
+        fetch('/static/api/stock_list.json')
+            .then(r => r.json())
+            .then(json => {
+                this.stockList = json.results || [];
+                this.setupAutocomplete();
+                // input의 기본값이 있을 때 자동으로 코드 세팅
+                if (this.$input && this.$selectedShortCode && this.$input.value) {
+                    const match = this.stockList.find(
+                        s => s.name === this.$input.value || s.short_code === this.$input.value
+                    );
+                    if (match) this.$selectedShortCode.value = match.short_code;
+                }
+                this.connectWS(); // 종목코드 세팅 후에만 연결
+            })
+            .catch(err => {
+                console.error('자동완성 종목 리스트 로드 실패', err);
+                this.setupAutocomplete();
+                this.connectWS(); // 실패 시에도 연결 시도
+            });
+    },
+
+    setupAutocomplete: function () {
+        if (!this.$input) return;
+        this.$input.addEventListener('input', (e) => {
+            const q = e.target.value.trim();
+            this.showAutocomplete(q);
+            this._activeIndex = -1;
+            if (this.$selectedShortCode) this.$selectedShortCode.value = '';
+        });
+        // 자동완성 목록 클릭 시 입력창에 반영
+        document.body.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('autocomplete-item')) {
+                this.$input.value = e.target.dataset.name;
+                this.hideAutocomplete();
+            } else {
+                this.hideAutocomplete();
+            }
+        });
+        // 키보드 네비게이션
+        this.$input.addEventListener('keydown', (e) => {
+            const list = document.getElementById('autocomplete-list');
+            if (!list || list.style.display === 'none') return;
+            const items = Array.from(list.querySelectorAll('.autocomplete-item'));
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this._activeIndex = (typeof this._activeIndex === 'number') ? this._activeIndex + 1 : 0;
+                if (this._activeIndex >= items.length) this._activeIndex = 0;
+                this.setActiveAutocomplete(items, this._activeIndex);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this._activeIndex = (typeof this._activeIndex === 'number') ? this._activeIndex - 1 : items.length - 1;
+                if (this._activeIndex < 0) this._activeIndex = items.length - 1;
+                this.setActiveAutocomplete(items, this._activeIndex);
+            } else if (e.key === 'Enter') {
+                if (typeof this._activeIndex === 'number' && this._activeIndex >= 0) {
+                    e.preventDefault();
+                    const it = items[this._activeIndex];
+                    if (it) {
+                        this.$input.value = it.dataset.name;
+                        if (this.$selectedShortCode) this.$selectedShortCode.value = it.dataset.shortCode;
+                        this.hideAutocomplete();
+                        this.connectWS();
+                    }
+                }
+            }
+        });
+    },
+    setActiveAutocomplete: function(items, idx) {
+        items.forEach((el, i) => el.classList.toggle('active', i === idx));
+        const active = items[idx];
+        if (active) active.scrollIntoView({block: 'nearest'});
+    },
+
+    showAutocomplete: function (q) {
+        this.hideAutocomplete();
+        if (!q || !this.stockList.length) return;
+        const matched = this.stockList.filter(
+            s => s.name.includes(q) || s.short_code.includes(q)
+        ).slice(0, 10);
+        if (!matched.length) return;
+        let list = document.getElementById('autocomplete-list');
+        if (!list) {
+            list = document.createElement('div');
+            list.id = 'autocomplete-list';
+            list.className = 'autocomplete-list';
+            this.$input.parentNode.appendChild(list);
+        }
+        list.innerHTML = '';
+        matched.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.dataset.name = item.name;
+            div.dataset.shortCode = item.short_code;
+            div.textContent = `${item.name} (${item.short_code})`;
+            list.appendChild(div);
+        });
+        list.style.display = 'block';
+    },
+
+    hideAutocomplete: function () {
+        const list = document.getElementById('autocomplete-list');
+        if (list) list.style.display = 'none';
     },
 
     cacheDOM: function () {
         this.$input = document.getElementById('stock-code-input');
+        this.$selectedShortCode = document.getElementById('selected-short-code');
         this.$connectBtn = document.getElementById('connect-btn');
         this.$disconnectBtn = document.getElementById('disconnect-btn');
         this.$status = document.getElementById('status');
@@ -43,7 +149,8 @@ const StockApp = {
     },
 
     connectWS: function () {
-        const code = this.$input.value.trim();
+        // prefer selected short code (from autocomplete). If absent, use raw input.
+        const code = (this.$selectedShortCode && this.$selectedShortCode.value) ? this.$selectedShortCode.value : this.$input.value.trim();
         if (!code) {
             alert('종목코드를 입력해주세요.');
             return;

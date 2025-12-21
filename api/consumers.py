@@ -1,4 +1,5 @@
 import json
+import re
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .stock_master import stock_master
 
@@ -6,7 +7,10 @@ class StockConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # URL에서 stock_code 추출
         self.stock_code = self.scope['url_route']['kwargs'].get('stock_code')
-        self.group_name = f"stock_{self.stock_code}"
+        clean_code = re.sub(r'[^a-zA-Z0-9_.-]', '', str(self.stock_code))[:100]
+        self.group_name = f"stock_{clean_code}"
+        print(f"[DEBUG] stock_code(raw): {self.stock_code}")
+        print(f"[DEBUG] group_name: {self.group_name}")
 
         # 1. Redis 그룹에 가입
         await self.channel_layer.group_add(

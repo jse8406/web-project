@@ -13,7 +13,11 @@
     <div class="container">
         <div class="header">
             <div class="control-panel">
-                <input type="text" id="stock-code-input" placeholder="종목코드 (예: 005930)" value="005930">
+                <div style="position:relative; width:100%;">
+                    <input type="text" id="stock-code-input" placeholder="종목코드 또는 종목명 입력" value="삼성전자">
+                    <input type="hidden" id="selected-short-code" value="">
+                    <div id="autocomplete-list" class="autocomplete-list" aria-hidden="true" style="display:none;"></div>
+                </div>
                 <button id="connect-btn">조회</button>
                 <button id="disconnect-btn" class="disconnect">중단</button>
             </div>

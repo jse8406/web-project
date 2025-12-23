@@ -1,0 +1,14 @@
+[Unit]
+Description=Stock Project Daphne Service
+After=network.target
+
+[Service]
+# User/Group might need adjustment on your Jetson (default 'jse' or 'ubuntu'?)
+User=jse
+Group=jse
+WorkingDirectory=/home/jse/stock_project
+ExecStart=/home/jse/stock_project/.venv/bin/daphne -b 0.0.0.0 -p 8000 config.asgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

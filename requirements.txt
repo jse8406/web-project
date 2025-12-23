@@ -1,3 +1,8 @@
 Django==6.0
 djangorestframework
 django-cors-headers
+channels
+channels-redis
+daphne
+python-dotenv
+requests

@@ -1,7 +1,7 @@
 import json
 import re
 from channels.generic.websocket import AsyncWebsocketConsumer
-from .stock_master import stock_master
+from .services.kis_ws_client import kis_client
 
 class StockConsumer(AsyncWebsocketConsumer):
     _logged_stocks = set() # 최초 1회 로그 출력 여부 확인용
@@ -27,7 +27,7 @@ class StockConsumer(AsyncWebsocketConsumer):
         print(f"[StockConsumer] Client connected to {self.group_name}")
         
         # 2. 마스터에게 구독 요청 (이미 구독 중이면 무시됨, 연결 안되어있으면 연결 시작)
-        await stock_master.subscribe(self.stock_code)
+        await kis_client.subscribe(self.stock_code)
 
     async def disconnect(self, close_code):
         # Redis 그룹에서 탈퇴
@@ -38,7 +38,7 @@ class StockConsumer(AsyncWebsocketConsumer):
         print(f"[StockConsumer] Client disconnected from {self.group_name}")
         
         # (선택) 마스터에게 구독 취소 알림 (지금은 구현 X)
-        await stock_master.unsubscribe(self.stock_code)
+        await kis_client.unsubscribe(self.stock_code)
 
     async def stock_update(self, event):
         """

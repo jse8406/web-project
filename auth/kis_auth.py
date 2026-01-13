@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
+import logging
 
 # .env 로드
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -15,6 +16,13 @@ DOMAIN = "https://openapi.koreainvestment.com:9443"
 # 토큰 캐시 파일 경로 (프로젝트 루트에 저장)
 TOKEN_CACHE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.kis_token_cache.json')
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("KIS Auth")
+
+# Add a global variable to track if the cached token log has been displayed
+_cached_token_logged = False
+
 
 def _load_cached_token():
     """캐시 파일에서 토큰 정보를 로드"""
@@ -24,7 +32,7 @@ def _load_cached_token():
         with open(TOKEN_CACHE_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"[KIS Auth] Failed to load token cache: {e}")
+        logger.warning(f"Failed to load token cache: {e}")
         return None
 
 
@@ -33,9 +41,9 @@ def _save_token_cache(token_data):
     try:
         with open(TOKEN_CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(token_data, f, ensure_ascii=False, indent=2)
-        print(f"[KIS Auth] Token cached to {TOKEN_CACHE_FILE}")
+        logger.info(f"Token cached to {TOKEN_CACHE_FILE}")
     except Exception as e:
-        print(f"[KIS Auth] Failed to save token cache: {e}")
+        logger.warning(f"Failed to save token cache: {e}")
 
 
 def _is_token_expired(token_data):
@@ -51,7 +59,7 @@ def _is_token_expired(token_data):
         now = datetime.now()
         return now >= (expired_dt - timedelta(minutes=5))
     except Exception as e:
-        print(f"[KIS Auth] Failed to parse expiration time: {e}")
+        logger.warning(f"Failed to parse expiration time: {e}")
         return True
 
 
@@ -74,7 +82,7 @@ def get_approval_key(appkey=APP_KEY, appsecret=APP_SECRET):
             body = r.json()
             return body.get("approval_key")
     except Exception as e:
-        print(f"[KIS Auth] Approval Key Error: {e}")
+        logger.warning(f"Approval Key Error: {e}")
     return None
 
 
@@ -92,14 +100,16 @@ def _fetch_new_access_token(appkey=None, appsecret=None):
         r = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
         if r.status_code == 200:
             body = r.json()
-            print(f"[KIS Auth] New access token issued, expires: {body.get('access_token_token_expired')}")
+            logger.info(f"New access token issued, expires: {body.get('access_token_token_expired')}")
             return body
     except Exception as e:
-        print(f"[KIS Auth] Access Token Error: {e}")
+        logger.warning(f"Access Token Error: {e}")
     return None
 
 
 def get_access_token(appkey=None, appsecret=None, force_refresh=False):
+    global _cached_token_logged
+
     """
     Access Token을 반환. 캐시된 토큰이 유효하면 재사용하고, 만료되었으면 새로 발급.
     
@@ -115,12 +125,14 @@ def get_access_token(appkey=None, appsecret=None, force_refresh=False):
     if not force_refresh:
         cached = _load_cached_token()
         if cached and not _is_token_expired(cached):
-            print(f"[KIS Auth] Using cached token (expires: {cached.get('access_token_token_expired')})")
+            if not _cached_token_logged:
+                logger.info(f"Using cached token (expires: {cached.get('access_token_token_expired')})")
+                _cached_token_logged = True
             return cached
         elif cached:
-            print("[KIS Auth] Cached token expired, fetching new one...")
+            logger.info("Cached token expired, fetching new one...")
         else:
-            print("[KIS Auth] No cached token found, fetching new one...")
+            logger.info("No cached token found, fetching new one...")
     
     # 2. 새 토큰 발급
     new_token = _fetch_new_access_token(appkey, appsecret)
@@ -146,7 +158,7 @@ def get_current_price(stock_code, appkey=None, appsecret=None):
     # 1. Access Token 가져오기 (캐시 or 새로 발급)
     token_data = get_access_token(appkey, appsecret)
     if not token_data or 'access_token' not in token_data:
-        print("[KIS Auth] Failed to get access token for current price")
+        logger.warning("Failed to get access token for current price")
         return None
     
     access_token = token_data['access_token']
@@ -172,10 +184,10 @@ def get_current_price(stock_code, appkey=None, appsecret=None):
             if body.get('rt_cd') == '0':
                 return body.get('output')
             else:
-                print(f"[KIS Auth] Current price API error: {body.get('msg1')}")
+                logger.warning(f"Current price API error: {body.get('msg1')}")
         else:
-            print(f"[KIS Auth] Current price HTTP error: {r.status_code}")
+            logger.warning(f"Current price HTTP error: {r.status_code}")
     except Exception as e:
-        print(f"[KIS Auth] Current price request error: {e}")
+        logger.warning(f"Current price request error: {e}")
     
     return None

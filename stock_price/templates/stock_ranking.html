@@ -253,8 +253,8 @@
                         <td class="rank-num {% if forloop.counter <= 3 %}rank-top{% endif %}">{{ forloop.counter }}</td>
                         <td class="stock-name-cell"
                             onclick="location.href='/stock_price/stock/detail/{{ item.stck_shrn_iscd }}/'">
-                            {{ item.hts_kor_isnm }} <span style="font-size:12px; color:#999;">{{
-                                item.stck_shrn_iscd}}</span></td>
+                            {{ item.hts_kor_isnm }}<span style="font-size:12px; color:#999;">{{ item.stck_shrn_iscd }}</span>
+                        </td>
                         <td class="price-align">{{ item.stck_prpr }}</td>
                         <td class="price-align">
                             <span

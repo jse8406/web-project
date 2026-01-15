@@ -109,8 +109,12 @@ class KISRestClient:
                 print(f"[Stock Service] Request Error: {e}")
                 return None
 
-    async def get_current_price(self, iscd):
-        """특정 종목 현재가 조회"""
+    async def get_theme_rank(self):
+        """주요 테마별 등락률 순위 (비활성화)"""
+        return []
+
+    def get_current_price(self, iscd):
+        """특정 종목 현재가 조회 (Sync version for TemplateView)"""
         headers = self._get_headers("FHKST01010100")
         if not headers: return None
 
@@ -121,22 +125,18 @@ class KISRestClient:
             "fid_input_iscd": iscd
         }
 
-        async with httpx.AsyncClient() as client:
+        with httpx.Client() as client:
             try:
-                response = await client.get(url, headers=headers, params=params, timeout=5)
+                response = client.get(url, headers=headers, params=params, timeout=10)
                 data = response.json()
                 if data.get('rt_cd') == '0':
                     return data.get('output', {})
+                else:
+                    print(f"[Stock Service] Current price API error: {data.get('msg1')}")
                 return None
             except Exception as e:
-                print(f"[Stock Service] Get Price Error ({iscd}): {e}")
+                print(f"[Stock Service] Current price request error: {e}")
                 return None
-
-    async def get_theme_rank(self):
-        """주요 테마별 등락률 순위 (비활성화)"""
-        return []
 
 # 싱글톤 인스턴스 생성
 kis_rest_client = KISRestClient()
-
-## theme rank 부분이 병목같음

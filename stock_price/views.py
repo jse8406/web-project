@@ -1,7 +1,7 @@
 import os
 import asyncio
 import json
-from auth.kis_auth import get_current_price
+# from auth.kis_auth import get_current_price
 from .services import kis_rest_client
 from django.views.generic import TemplateView, View
 from django.template.response import TemplateResponse
@@ -17,7 +17,7 @@ class StockDetailView(TemplateView):
         stock_code = self.kwargs.get('stock_code', '005930') # Default Samsung Electronics
         
         # Fetch data
-        data = get_current_price(stock_code)
+        data = kis_rest_client.get_current_price(stock_code)
         
         # Load stock list to find the name
         stock_name = None
@@ -46,17 +46,18 @@ class StockDetailView(TemplateView):
         context['stock_code'] = stock_code
         context['stock_name'] = stock_name
         context['stock_data'] = data
-        context['stock_data'] = data
         return context
 
 class StockRankingView(View):
     template_name = "stock_ranking.html"
 
     async def get(self, request, *args, **kwargs):
-        # 비동기로 API 호출
-        rank_fluctuation = await kis_rest_client.get_fluctuation_rank()
-        rank_volume = await kis_rest_client.get_volume_rank()
-        rank_theme = await kis_rest_client.get_theme_rank()
+        # 비동기로 API 호출 (병렬 처리)
+        rank_fluctuation, rank_volume, rank_theme = await asyncio.gather(
+            kis_rest_client.get_fluctuation_rank(),
+            kis_rest_client.get_volume_rank(),
+            kis_rest_client.get_theme_rank()
+        )
 
         context = {
             "rank_fluctuation": rank_fluctuation if rank_fluctuation else [],

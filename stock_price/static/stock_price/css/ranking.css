@@ -1,0 +1,210 @@
+        .ranking-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .ranking-header {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #f2f4f6;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ranking-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #191f28;
+            margin: 0;
+        }
+
+        .tab-menu {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7684;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background-color: #f2f4f6;
+        }
+
+        .tab-btn.active {
+            background-color: #3182f6;
+            color: #fff;
+            border-color: #3182f6;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .ranking-table th {
+            text-align: left;
+            padding: 12px;
+            color: #8b95a1;
+            font-weight: 500;
+            border-bottom: 1px solid #f2f4f6;
+        }
+
+        .ranking-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f2f4f6;
+            color: #333;
+        }
+
+        .ranking-table tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .rank-num {
+            font-weight: 700;
+            color: #333;
+            width: 40px;
+            text-align: center;
+        }
+
+        .rank-top {
+            color: #f04452;
+        }
+
+        .stock-name-cell {
+            font-weight: 600;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .stock-name-cell:hover {
+            text-decoration: underline;
+            color: #3182f6;
+        }
+
+        .up {
+            color: #f04452;
+        }
+
+        .down {
+            color: #3182f6;
+        }
+
+        .section-wrapper {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .section-wrapper.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .price-align {
+            text-align: right;
+            /* 숫자 우측 정렬 */
+            padding-right: 20px !important;
+        }
+
+        /* Theme Grid Styles */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            padding: 10px 0;
+        }
+
+        .theme-card {
+            background: #fff;
+            border: 1px solid #e5e8eb;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .theme-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+            border-color: transparent;
+        }
+
+        .theme-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .theme-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .theme-rate {
+            font-size: 26px;
+            font-weight: 800;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .theme-desc {
+            font-size: 13px;
+            color: #8b95a1;
+        }
+
+        .card-up {
+            background: linear-gradient(135deg, #fff5f6 0%, #ffffff 100%);
+            border-color: #ffc9c9;
+        }
+
+        .card-up .theme-rate {
+            color: #f04452;
+        }
+
+        .card-up .theme-icon {
+            color: #f04452;
+        }
+
+        .card-down {
+            background: linear-gradient(135deg, #f3f9fe 0%, #ffffff 100%);
+            border-color: #c9e2ff;
+        }
+
+        .card-down .theme-rate {
+            color: #3182f6;
+        }
+
+        .card-down .theme-icon {
+            color: #3182f6;
+        }

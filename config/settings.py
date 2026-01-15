@@ -40,7 +40,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'stock_price',
+    'stock_theme',
     'channels',
+
 ]
 
 ASGI_APPLICATION = 'config.asgi.application'

@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Today's Market Themes - AI Analysis</title>
+    <!-- Use Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'stock_theme/css/theme_list.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Today's Market Themes</h1>
+            <p class="subtitle">AI가 분석한 오늘의 증시 주요 테마와 급등 사유</p>
+        </header>
+
+        {% if themes %}
+        <div class="theme-grid">
+            {% for theme in themes %}
+            <div class="theme-card">
+                <span class="theme-date">{{ theme.date }} ({{ theme.created_at|date:"H:i" }} 분석)</span>
+                <h2 class="theme-title">{{ theme.name }}</h2>
+                <p class="theme-desc">{{ theme.description }}</p>
+
+                <div class="stock-list">
+                    {% for theme_stock in theme.theme_stock_set.all %}
+                    <div class="stock-item-wrapper" style="margin-bottom: 12px;">
+                        <div class="stock-item">
+                            <div>
+                                <span class="stock-name">{{ theme_stock.stock.name }}</span>
+                                <span class="stock-code">{{ theme_stock.stock.short_code }}</span>
+                            </div>
+                        </div>
+                        {% if theme_stock.reason %}
+                        <div class="reason-badge">{{ theme_stock.reason }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-data">
+            <h2>분석된 테마 데이터가 없습니다.</h2>
+            <p>장 마감 후 관리자 명령으로 분석을 실행해주세요.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>

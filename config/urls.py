@@ -20,6 +20,8 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('stock_price/', include('stock_price.urls')),
+    path('theme/', include('stock_theme.urls')),
+
 ]
 
 from django.conf import settings

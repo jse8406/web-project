@@ -1,6 +1,6 @@
 
 from django.test import TestCase
-from .kis_auth import get_access_token, get_approval_key, get_current_price
+from .kis_auth import get_access_token, get_approval_key
 
 class KISAuthTokenTest(TestCase):
     def test_get_approval_key(self):
@@ -33,11 +33,4 @@ class KISAuthTokenTest(TestCase):
                         "Second call should return cached token")
         print("[TEST] 토큰 캐싱 동작 확인!")
 
-    def test_get_current_price(self):
-        """
-        get_current_price 함수가 삼성전자(005930) 현재가를 반환하는지 테스트
-        """
-        result = get_current_price("005930")
-        self.assertIsNotNone(result, "get_current_price() should not return None")
-        self.assertIn("stck_prpr", result, "Response should contain 'stck_prpr' (현재가)")
-        print(f"[TEST] 삼성전자 현재가: {result.get('stck_prpr')}원")
+

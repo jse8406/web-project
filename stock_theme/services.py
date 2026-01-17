@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import urllib.request
+import urllib.parse
 from datetime import date
 from asgiref.sync import sync_to_async
 from django.db import transaction
@@ -19,17 +21,51 @@ class NewsCollector:
     2) (임시) 종목명 기반의 더미 뉴스 데이터 생성 
     역할을 수행합니다.
     """
-    def collect_news(self, stock_name):
-        # TODO: 실제 뉴스 검색 API (Naver Open API 등) 연동 필요
-        # user가 뉴스 API 키를 제공하면 여기에 requests.get(...) 로직 추가
+    def _fetch_naver_news(self, query, display, sort):
+        client_id = os.getenv("naver_client_id")
+        client_secret = os.getenv("naver_secret")
         
-        # 임시: 테마 분석 테스트를 위한 합성 데이터 리턴
-        # 실제 서비스 시에는 이 부분을 실제 크롤링/API로 대체해야 함
-        return [
-            f"{stock_name}, 주가 급등... 관련 이슈 주목",
-            f"특징주: {stock_name} 거래량 폭발, 이유는?",
-            f"산업 동향: {stock_name} 등 관련 섹터 강세"
-        ]
+        if not client_id or not client_secret:
+            return []
+
+        try:
+            enc_text = urllib.parse.quote(query)
+            url = f"https://openapi.naver.com/v1/search/news?query={enc_text}&display={display}&sort={sort}"
+            
+            request = urllib.request.Request(url)
+            request.add_header("X-Naver-Client-Id", client_id)
+            request.add_header("X-Naver-Client-Secret", client_secret)
+            
+            response = urllib.request.urlopen(request, timeout=5)
+            if response.getcode() == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                items = data.get('items', [])
+                
+                cleaned_items = []
+                for item in items:
+                    title = item['title'].replace('<b>', '').replace('</b>', '').replace('&quot;', '"')
+                    desc = item['description'].replace('<b>', '').replace('</b>', '').replace('&quot;', '"')
+                    cleaned_items.append(f"{title}") # 제목 위주로 전달 (요약은 LLM이)
+                return cleaned_items
+            return []
+        except Exception as e:
+            logger.error(f"Naver API Error ({sort}): {e}")
+            return []
+
+    def collect_news(self, stock_name):
+        # 1. 관련도순 4개 (핵심 이슈 파악)
+        sim_news = self._fetch_naver_news(stock_name, 4, 'sim')
+        
+        # 2. 최신순 2개 (속보성 이슈 파악)
+        date_news = self._fetch_naver_news(stock_name, 2, 'date')
+        
+        # 중복 제거 및 합치기
+        all_news = list(dict.fromkeys(sim_news + date_news))
+        
+        if not all_news:
+             return [f"{stock_name} (Mock) 뉴스 데이터...", f"{stock_name} 관련 이슈 (Mock)"]
+             
+        return all_news
 
 class ThemeAnalyzeService:
     def __init__(self):
@@ -43,8 +79,8 @@ class ThemeAnalyzeService:
     async def analyze_and_save_themes(self):
         """
         1. KIS API에서 급등주/거래량 상위 종목 수집
-        2. 각 종목별 뉴스 수집 (현재는 Mock)
-        3. LLM(Solar Pro)에게 테마 분석 요청
+        2. 각 종목별 뉴스 수집 (Sim 4 + Date 2)
+        3. LLM(Solar Pro)에게 "Micro-Theme" 분석 요청
         4. DB 저장
         """
         # 1. 데이터 수집
@@ -54,13 +90,17 @@ class ThemeAnalyzeService:
             logger.error("Failed to fetch fluctuation ranks.")
             return
 
-        # 상위 10개만 분석 (API 비용/속도 고려)
-        top_stocks = fluctuation_ranks[:10]
+        # 상위 30개 분석 (히트맵 구성을 위해 확장)
+        top_stocks = fluctuation_ranks[:30]
         
         analysis_targets = []
-        for item in top_stocks:
+        total_stocks = len(top_stocks)
+        
+        for idx, item in enumerate(top_stocks, 1):
             name = item.get('hts_kor_isnm')
             code = item.get('stck_shrn_iscd')
+            
+            print(f"[ThemeService] Collecting news for {name} ({idx}/{total_stocks})...")
             
             # 뉴스 수집
             news_list = self.news_collector.collect_news(name)
@@ -71,27 +111,28 @@ class ThemeAnalyzeService:
                 "news_headlines": news_list
             })
 
-        # 2. LLM 프롬프트 구성
+        # 2. LLM 프롬프트 구성 (Micro-Theme 지향)
         prompt = f"""
-        다음은 오늘 급등한 주식 종목들과 관련 뉴스 헤드라인입니다.
-        이 정보를 바탕으로, 오늘 시장을 주도한 '핵심 테마'를 1~3개로 그룹화하고 요약해주세요.
+        다음은 오늘 급등한 주식 종목 30개와 관련 뉴스 헤드라인입니다.
+        이 정보를 바탕으로, 오늘 시장을 주도한 **'구체적이고 단기적인 이슈 테마(Micro-Theme)'**를 추출해주세요.
 
         [데이터]
         {json.dumps(analysis_targets, ensure_ascii=False, indent=2)}
 
-        [요청사항]
-        1. 각 테마의 이름은 직관적이고 명확하게 (예: '2차전지', '초전도체', '정치 테마주').
-        2. 해당 테마가 형성된 이유를 한 문장으로 요약.
-        3. 각 테마에 속하는 종목들을 매핑.
-        4. 반드시 아래 JSON 형식으로만 응답해주세요 (Markdown 코드블럭 없이).
+        [분석 지침]
+        1. **Broad Sector 지양**: '반도체', '화학', '자동차' 같은 너무 넓은 대분류로 묶지 마세요.
+        2. **Specific Issue 지향**: 뉴스를 분석하여 **'트럼프 관세 부과', '홍해 물류 대란', '비만치료제 임상 성공'** 같이 구체적인 사건/이슈 중심으로 테마명을 정하세요.
+        3. **연관성**: 같은 이슈로 묶이는 종목끼리 그룹화하세요. 만약 독립적인 이슈라면 단독 테마로 구성해도 좋습니다.
+        4. **이유 요약**: 해당 종목이 왜 그 테마에 속하는지 뉴스에 기반하여 한 문장으로 명확히 설명하세요.
 
+        [응답 형식 (JSON Only)]
         {{
             "themes": [
                 {{
-                    "name": "테마명",
-                    "description": "테마 상승 이유 요약",
+                    "name": "구체적인 테마명 (예: 초전도체 LK-99 검증)",
+                    "description": "테마 발생 원인 및 시장 상황 요약",
                     "stocks": [
-                        {{"code": "종목코드", "name": "종목명", "reason": "이 종목이 해당 테마에 포함된 구체적 사유"}}
+                        {{"code": "종목코드", "name": "종목명", "reason": "뉴스에 기반한 구체적 등락 사유"}}
                     ]
                 }}
             ]

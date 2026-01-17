@@ -25,8 +25,9 @@
                 </div>
                 <div class="nav-group">
                     <button id="detail-btn" style="background-color: #6c757d;">상세 정보</button>
-                    <button id="ranking-btn" style="background-color: #4e5968;" data-url="{% url 'stock_ranking' %}"
-                        onclick="location.href=this.dataset.url">순위 보기</button>
+                    <button id="ranking-btn" style="background-color: #4e5968;"
+                        data-url="{% url 'stock_price:stock_ranking' %}" onclick="location.href=this.dataset.url">순위
+                        보기</button>
                 </div>
             </div>
             <div id="status" style="font-size: 13px; color: #8b95a1;">연결 대기중...</div>

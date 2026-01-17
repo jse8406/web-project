@@ -5,6 +5,8 @@ from . import views
 router = DefaultRouter()
 # router.register(r'items', views.ItemViewSet)
 
+app_name = 'stock_price'
+
 urlpatterns = [
     path('', include(router.urls)),
     path('stock/', views.StockRealtimeView.as_view(), name='stock_realtime'),

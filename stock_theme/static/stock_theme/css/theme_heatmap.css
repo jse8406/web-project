@@ -1,0 +1,342 @@
+/* Global Vars & Reset */
+:root {
+    --bg-dark: #121212;
+    --bg-panel: #1e1e1e;
+    --bg-card: #252525;
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --accent-color: #00e676;
+    /* Green for rise */
+    --danger-color: #ff5252;
+    /* Red for fall */
+    --border-color: #333333;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body.dark-theme {
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    height: 100vh;
+    overflow: hidden;
+    /* App-like feel */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.app-header {
+    height: 60px;
+    padding: 0 24px;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    font-weight: 700;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.market-status {
+    color: var(--danger-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    animation: blink 2s infinite;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.market-select {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Main Dashboard Grid */
+.heatmap-layout {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dashboard-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr 350px;
+    /* Left(Fixed) Center(Flex) Right(Fixed) */
+    grid-template-rows: minmax(0, 1fr);
+    /* Force row to stay within container height to enable scroll */
+    gap: 16px;
+    padding: 16px;
+    overflow: hidden;
+}
+
+/* Common Panel Styles */
+.panel {
+    background-color: var(--bg-panel);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.panel-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.refresh-timer {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* 1. Left Panel: Mini Heatmap (Top 30) */
+.mini-heatmap-container {
+    flex: 1;
+    padding: 8px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    /* Flex wrap for pseudo-treemap */
+    align-content: flex-start;
+    gap: 4px;
+}
+
+/* Pseudo-Treemap Blocks handled by JS dynamically */
+.mini-block {
+    background-color: #333;
+    border-radius: 4px;
+    flex-grow: 1;
+    /* Key to treemap-like feel */
+    min-width: 60px;
+    min-height: 50px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.mini-block:hover {
+    transform: scale(1.02);
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.mini-block .code {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.mini-block .rate {
+    font-size: 0.8rem;
+}
+
+/* 2. Center Panel: Theme Cards */
+.center-panel {
+    background-color: transparent;
+    /* Makes cards float */
+    border: none;
+    overflow-y: auto;
+    padding-right: 4px;
+    /* Scrollbar space */
+}
+
+.center-panel .panel-header {
+    background-color: var(--bg-panel);
+    /* Header has bg */
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.theme-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 20px;
+}
+
+.theme-card {
+    background-color: var(--bg-panel);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.theme-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.theme-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.detail-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+/* Heatmap inside Theme Card */
+.theme-heatmap-body {
+    display: flex;
+    flex-wrap: wrap;
+    height: 200px;
+    /* Fixed height for consistent look */
+    gap: 4px;
+}
+
+.stock-block {
+    background-color: #2a2a2a;
+    border-radius: 6px;
+    flex-grow: 1;
+    /* Treemap effect */
+    flex-basis: 80px;
+    /* Min width basis */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4px;
+    transition: background-color 0.5s ease;
+    cursor: pointer;
+}
+
+.stock-block:hover {
+    filter: brightness(1.2);
+}
+
+.block-content {
+    text-align: center;
+    overflow: hidden;
+}
+
+.stock-name {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.stock-rate {
+    display: block;
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+/* 3. Right Panel: Details */
+.right-panel {
+    border-left: 1px solid var(--border-color);
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.analysis-content {
+    margin-top: 10px;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    color: #ddd;
+}
+
+.guide-list li {
+    margin-bottom: 8px;
+    list-style: none;
+    color: var(--text-secondary);
+}
+
+/* Color Utilities */
+.bg-up-1 {
+    background-color: rgba(0, 230, 118, 0.2) !important;
+    color: #fff;
+}
+
+.bg-up-2 {
+    background-color: rgba(0, 230, 118, 0.4) !important;
+    color: #fff;
+}
+
+.bg-up-3 {
+    background-color: rgba(0, 230, 118, 0.6) !important;
+    color: #fff;
+}
+
+.bg-up-4 {
+    background-color: rgba(0, 230, 118, 0.8) !important;
+    color: #fff;
+}
+
+.bg-down-1 {
+    background-color: rgba(255, 82, 82, 0.2) !important;
+    color: #fff;
+}
+
+.bg-down-2 {
+    background-color: rgba(255, 82, 82, 0.4) !important;
+    color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}

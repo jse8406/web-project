@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}실시간 테마 분석기 (Real-time Heatmap){% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'stock_theme/css/theme_heatmap.css' %}?v=1.4">
+{% endblock %}
+
+{% block content %}
+<!-- Heatmap Specific Content Wrapper -->
+<div class="heatmap-layout">
+    <header class="app-header">
+        <div class="logo">
+            <span class="icon">📈</span> 실시간 테마 분석기
+        </div>
+        <div class="header-controls">
+            <span class="market-status">● LIVE</span>
+            <select class="market-select">
+                <option>KOSPI Heatmap</option>
+                <option>KOSDAQ Heatmap</option>
+            </select>
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        <!-- 1. 좌측 패널: 실시간 상승 TOP 30 (Mini Heatmap) -->
+        <section class="panel left-panel">
+            <div class="panel-header">
+                <h2>실시간 상승 TOP 30</h2>
+                <span class="refresh-timer">Updated now</span>
+            </div>
+            <div class="mini-heatmap-container" id="top-30-container">
+                <!-- JS로 실시간 렌더링될 영역 -->
+                <div class="loading-state">Loading Top 30...</div>
+            </div>
+        </section>
+
+        <!-- 2. 중앙 패널: 오늘의 주도 테마 (Main Theme Cards) -->
+        <section class="panel center-panel">
+            <div class="panel-header">
+                <h2>오늘의 주도 테마</h2>
+            </div>
+
+            <div class="theme-cards-container">
+                {% for theme in themes %}
+                <article class="theme-card" data-theme-id="{{ theme.id }}">
+                    <div class="theme-header">
+                        <div class="theme-title">
+                            <span class="icon">🚀</span> {{ theme.name }}
+                        </div>
+                        <a href="#" class="detail-link">></a>
+                    </div>
+
+                    <!-- 테마 내부 종목 히트맵 -->
+                    <div class="theme-heatmap-body">
+                        {% for item in theme.stocks.all %}
+                        <div class="stock-block" data-code="{{ item.stock.short_code }}"
+                            data-name="{{ item.stock.name }}" data-reason="{{ item.reason }}">
+
+                            <div class="block-content">
+                                <span class="stock-name">{{ item.stock.name }}</span>
+                                <span class="stock-rate" id="rate-{{ item.stock.short_code }}">0.00%</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty-message">종목 없음</div>
+                        {% endfor %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- 3. 우측(하단) 패널: 상승 배경 및 분석 (Detail View) -->
+        <section class="panel right-panel">
+            <div class="panel-header">
+                <h2>상승 배경 및 분석</h2>
+            </div>
+
+            <div class="analysis-content" id="analysis-detail">
+                <div class="placeholder-text">
+                    <p>테마나 종목을 선택하면<br>상세 분석 위젯이 여기에 표시됩니다.</p>
+                    <ul class="guide-list">
+                        <li>• AI & 반도체는 최근 휴게 리포트 영향으로...</li>
+                        <li>• 이차전지는 00번째 수주 공시가...</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/json" id="target-stocks-data">
+        {{ target_stock_codes|safe }}
+    </script>
+<script src="{% static 'stock_theme/js/theme_heatmap.js' %}?v=1.2"></script>
+{% endblock %}

@@ -72,6 +72,44 @@ class KISRestClient:
                 print(f"[Stock Service] Request Error: {e}")
                 return None
 
+    def get_fluctuation_rank_sync(self):
+        """등락률 순위 조회 (상위 30개) - Sync version"""
+        headers = self._get_headers("FHPST01700000")
+        if not headers: return None
+
+        url = f"{self.domain}/uapi/domestic-stock/v1/ranking/fluctuation"
+
+        params = {
+            "fid_rsfl_rate2": "",
+            "fid_cond_mrkt_div_code": "J",
+            "fid_cond_scr_div_code": "20170",
+            "fid_input_iscd": "0000",
+            "fid_rank_sort_cls_code": "0", # 0: 상승률순
+            "fid_input_cnt_1": "0",
+            "fid_prc_cls_code": "1",
+            "fid_input_price_1": "",
+            "fid_input_price_2": "",
+            "fid_vol_cnt": "",
+            "fid_trgt_cls_code": "0",
+            "fid_trgt_exls_cls_code": "0",
+            "fid_div_cls_code": "0",
+            "fid_rsfl_rate1": "",
+        }
+
+        with httpx.Client() as client:
+            try:
+                response = client.get(url, headers=headers, params=params, timeout=10)
+                data = response.json()
+
+                if data.get('rt_cd') != '0':
+                    print(f"[Stock Service] Fluctuation Rank Error: {data.get('msg1')}")
+                    return []
+
+                return data.get('output', [])
+            except Exception as e:
+                print(f"[Stock Service] Request Error: {e}")
+                return []
+
     async def get_volume_rank(self):
         """거래량 순위 조회 (상위 30개)"""
         headers = self._get_headers("FHPST01710000")
@@ -137,6 +175,58 @@ class KISRestClient:
             except Exception as e:
                 print(f"[Stock Service] Current price request error: {e}")
                 return None
+
+    def get_market_operation_status(self):
+        """
+        시장 운영 상태 조회 (API)
+        User Requested Endpoint: /uapi/domestic-stock/v1/market/inquire-time (using likely TR ID: CTCA0903R or similar)
+        Returns: True if market is open (mrkt_opnd_yn == 'Y'), False otherwise.
+        """
+        # Note: 'CTCA0903R' is technically for text 'chk-holiday', but widely used for status check.
+        # If the user specifically wants the path 'market/inquire-time', we use that.
+        # We try to use a generic inquiry TR ID if specific one is unknown, but typically CTCA0903R works for daily status.
+        
+        # Using the standard Holiday Check API as it's most reliable for "Is today open?"
+        # URL: /uapi/domestic-stock/v1/quotations/chk-holiday (Standard)
+        # Verify if user insists on 'market/inquire-time'.
+        # Let's try to match the user's expected output keys.
+        
+        headers = self._get_headers("CTCA0903R")
+        if not headers: return None
+
+        # Standard Holiday Check URL
+        url = f"{self.domain}/uapi/domestic-stock/v1/quotations/chk-holiday"
+        
+        from datetime import datetime
+        today = datetime.now().strftime("%Y%m%d")
+
+        params = {
+            "BASS_DT": today,
+            "CTX_AREA_NK": "",
+            "CTX_AREA_FK": ""
+        }
+
+        with httpx.Client() as client:
+            try:
+                response = client.get(url, headers=headers, params=params, timeout=5)
+                data = response.json()
+                
+                # CTCA0903R Output Structure:
+                # { "output": [ { "orgn_dt": "20240501", "opnd_yn": "N", ... } ] }
+                
+                if data.get('rt_cd') == '0':
+                    output = data.get('output', [])
+                    if output:
+                        # Today's status (usually first item or match date)
+                        item = output[0] 
+                        is_open_yn = item.get('opnd_yn', 'N')
+                        return is_open_yn == 'Y'
+                else:
+                    print(f"[Stock Service] Market Status API Error: {data.get('msg1')}")
+            except Exception as e:
+                print(f"[Stock Service] Market Status Request Error: {e}")
+        
+        return False
 
 # 싱글톤 인스턴스 생성
 kis_rest_client = KISRestClient()

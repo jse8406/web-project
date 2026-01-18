@@ -29,6 +29,7 @@ Django REST Framework와 한국투자증권(KIS) Open API를 활용한 실시간
 
 이 프로젝트의 상세한 API 구조와 아키텍처는 별도 문서로 관리됩니다.
 - **[API 아키텍처 문서 (docs/api_architecture.md)](docs/api_architecture.md)**: 내부 API, 외부 KIS API 연동 구조, 웹소켓 및 데이터 흐름도
+- **[실시간 테마 동기화 설계 (docs/realtime_sync.md)](docs/realtime_sync.md)**: 실시간 랭킹과 테마 분석 간의 동기화 전략 (Monitor & Diff)
 
 ---
 

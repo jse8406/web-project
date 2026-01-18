@@ -125,20 +125,20 @@
     <!-- Sidebar Navigation -->
     <nav class="sidebar">
         <div class="logo-area">
-            <span>📈</span> Antigravity Stock
+            <span>주갓</span>
         </div>
 
         <div class="nav-tree">
 
             <div class="nav-group">
-                <div class="nav-group-title">Market Analysis</div>
+                <div class="nav-group-title">시장 분석</div>
                 <a href="{% url 'stock_theme:theme_heatmap' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'theme_heatmap' %}active{% endif %}">
-                    <span class="nav-icon">🔥</span> Real-time Heatmap
+                    <span class="nav-icon">🔥</span> 실시간 테마 히트맵
                 </a>
                 <a href="{% url 'stock_price:stock_ranking' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'stock_ranking' %}active{% endif %}">
-                    <span class="nav-icon">🏆</span> Real-time Ranking
+                    <span class="nav-icon">🏆</span> 실시간 등락률 순위
                 </a>
             </div>
 
@@ -146,7 +146,7 @@
                 <div class="nav-group-title">Archives</div>
                 <a href="{% url 'stock_theme:daily_theme_list' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'daily_theme_list' %}active{% endif %}">
-                    <span class="nav-icon">📅</span> Daily Themes
+                    <span class="nav-icon">📅</span> 데일리 테마
                 </a>
             </div>
 

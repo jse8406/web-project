@@ -3,34 +3,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init Data
     const targetStockCodesElement = document.getElementById('target-stocks-data');
+    const top30ListElement = document.getElementById('top-30-list-data');
+    const initialPriceElement = document.getElementById('initial-price-data');
+
     let targetStockCodes = [];
-    if (targetStockCodesElement) {
-        try {
-            targetStockCodes = JSON.parse(targetStockCodesElement.textContent);
-        } catch (e) {
-            console.error("Failed to parse stock codes", e);
-        }
+    let top30List = [];
+    let initialPriceData = {};
+
+    try {
+        if (targetStockCodesElement) targetStockCodes = JSON.parse(targetStockCodesElement.textContent);
+        if (top30ListElement) top30List = JSON.parse(top30ListElement.textContent);
+        if (initialPriceElement) initialPriceData = JSON.parse(initialPriceElement.textContent);
+    } catch (e) {
+        console.error("Failed to parse initial data", e);
     }
+
     console.log("Target Stocks:", targetStockCodes);
+    console.log("Initial Price Data Keys:", Object.keys(initialPriceData).length);
 
     // [UI] Initial Render: Left Panel Mini Heatmap
     const leftPanelContainer = document.getElementById('top-30-container');
-    if (leftPanelContainer && targetStockCodes.length > 0) {
+    if (leftPanelContainer) {
         leftPanelContainer.innerHTML = '';
 
-        targetStockCodes.forEach(code => {
-            let name = code;
-            const centerBlock = document.querySelector(`.stock-block[data-code="${code}"]`);
-            if (centerBlock) name = centerBlock.dataset.name;
+        // Use Top 30 List from Server if available (Preferred)
+        if (top30List && top30List.length > 0) {
+            top30List.forEach(item => {
+                const code = item.code;
+                const name = item.name;
+                const rate = item.rate;
+                const price = item.price; // Optional display
 
-            const block = document.createElement('div');
-            block.className = 'mini-block';
-            block.id = `mini-block-${code}`;
-            block.innerHTML = `
-                <div class="code" id="mini-name-${code}">${name}</div>
-                <div class="rate" id="mini-rate-${code}">0.00%</div>
-            `;
-            leftPanelContainer.appendChild(block);
+                const block = document.createElement('div');
+                block.className = 'mini-block';
+                block.id = `mini-block-${code}`;
+                block.innerHTML = `
+                    <div class="code" id="mini-name-${code}">${name}</div>
+                    <div class="rate" id="mini-rate-${code}">${rate}%</div>
+                `;
+                // Apply color class immediately
+                updateBlockStyle(block, parseFloat(rate), 0);
+                leftPanelContainer.appendChild(block);
+            });
+        }
+        // Fallback: Use targetStockCodes (Legacy/Backup)
+        else if (targetStockCodes.length > 0) {
+            targetStockCodes.forEach(code => {
+                let name = code;
+                const centerBlock = document.querySelector(`.stock-block[data-code="${code}"]`);
+                if (centerBlock) name = centerBlock.dataset.name;
+
+                // Try to find price data in initialPriceData
+                let displayRate = "0.00";
+                let numericRate = 0.0;
+
+                if (initialPriceData && initialPriceData[code]) {
+                    const data = initialPriceData[code];
+                    numericRate = parseFloat(data.rate || data.prdy_ctrt || 0);
+                    displayRate = `${numericRate > 0 ? '+' : ''}${numericRate.toFixed(2)}`;
+                }
+
+                const block = document.createElement('div');
+                block.className = 'mini-block';
+                block.id = `mini-block-${code}`;
+                block.innerHTML = `
+                    <div class="code" id="mini-name-${code}">${name}</div>
+                    <div class="rate" id="mini-rate-${code}">${displayRate}%</div>
+                `;
+
+                // Remove existing color classes first if any (though new element)
+                updateBlockStyle(block, numericRate, 0);
+
+                leftPanelContainer.appendChild(block);
+            });
+        }
+    }
+
+    // [UI] Initial Render: Main Heatmap Prices
+    if (initialPriceData) {
+        Object.keys(initialPriceData).forEach(code => {
+            const data = initialPriceData[code];
+            const rate = parseFloat(data.rate || data.prdy_ctrt || 0); // Handle different key naming if any
+            const volume = parseInt(data.volume || 0);
+
+            // Update Main Heatmap Block
+            document.querySelectorAll(`#rate-${code}`).forEach(el => {
+                el.textContent = `${rate > 0 ? '+' : ''}${rate}%`;
+                const block = el.closest('.stock-block');
+                if (block) updateBlockStyle(block, rate, volume);
+            });
         });
     }
 
@@ -117,17 +178,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const themeName = card.querySelector('.theme-title').textContent.trim();
             const stocks = card.querySelectorAll('.stock-block');
 
-            let analysisHtml = `<h3>🚀 ${themeName}</h3><div class="analysis-body" style="margin-top:20px;">`;
+            let analysisHtml = `<h3 class="detail-title"> ${themeName}</h3><div class="detail-body">`;
             if (stocks.length > 0) {
                 analysisHtml += `<ul class="guide-list">`;
                 stocks.forEach(stock => {
                     const name = stock.dataset.name;
                     const reason = stock.dataset.reason || "상세 분석 내용이 없습니다.";
-                    analysisHtml += `<li style="margin-bottom:12px; color:#ddd;"><strong style="color:#fff;">${name}</strong> <br> ${reason}</li>`;
+                    analysisHtml += `<li class="guide-item"><strong class="guide-name">${name}</strong> <br> ${reason}</li>`;
                 });
                 analysisHtml += `</ul>`;
             } else {
-                analysisHtml += `<p>포함된 종목이 없습니다.</p>`;
+                analysisHtml += `<p class="detail-text">포함된 종목이 없습니다.</p>`;
             }
             analysisHtml += `</div>`;
             document.getElementById('analysis-detail').innerHTML = analysisHtml;
@@ -149,13 +210,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentRate = stockBlock.querySelector('.stock-rate').textContent;
 
             const detailHtml = `
-                <h3 style="margin-bottom:10px;">⚡ ${name} (${code})</h3>
-                <span class="stock-rate" style="font-size:1.5rem; font-weight:bold; margin-bottom:20px; display:inline-block; color:${currentRate.includes('-') ? '#ff5252' : '#00e676'}">${currentRate}</span>
-                <div class="analysis-body" style="margin-top:20px; border-top:1px solid #333; padding-top:20px;">
-                    <h4 style="color:#aaa; margin-bottom:10px;">📈 상승 배경 (AI 분석)</h4>
-                    <p style="line-height:1.6; color:#eee;">${reason}</p>
-                    <br>
-                    <a href="/stock_price/stock/detail/${code}/" class="detail-link-btn" style="display:inline-block; padding:8px 16px; background:#333; color:#fff; text-decoration:none; border-radius:4px; margin-top:20px;">👉 차트/호가 자세히 보기</a>
+                <h3 class="detail-title">⚡ ${name} (${code})</h3>
+                <span class="detail-rate ${currentRate.includes('-') ? 'rate-down' : 'rate-up'}">${currentRate}</span>
+                
+                <div class="detail-body">
+                    <h4 class="detail-subtitle">📈 상승 배경 (AI 분석)</h4>
+                    <p class="detail-text">${reason}</p>
+                    
+                    <a href="/stock_price/stock/detail/${code}/" class="detail-btn">
+                        👉 차트/호가 자세히 보기
+                    </a>
                 </div>
             `;
             document.getElementById('analysis-detail').innerHTML = detailHtml;

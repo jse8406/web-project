@@ -195,3 +195,119 @@ class ThemeAnalyzeService:
                         stock=stock_obj,
                         reason=stock_item.get('reason', '')
                     )
+
+    async def analyze_single_stock_incremental(self, code, name):
+        """
+        신규 진입 종목 1개에 대해 '증분 테마 분석'을 수행한다.
+        기존에 생성된 테마 목록과 비교하여, 기존 테마에 편입시키거나 새로운 마이크로 테마를 생성한다.
+        """
+        print(f"[ThemeService] Incremental Analysis for {name} ({code})...")
+        
+        # 1. 오늘 날짜의 기존 테마 목록 조회 (Sync to Async)
+        today = date.today()
+        existing_themes = await sync_to_async(list)(Theme.objects.filter(date=today))
+        
+        existing_themes_prompt = []
+        for t in existing_themes:
+            existing_themes_prompt.append(f"- ID {t.id}: {t.name} ({t.description})")
+            
+        existing_themes_text = "\n".join(existing_themes_prompt)
+        
+        if not existing_themes_text:
+            print("[ThemeService] No existing themes found for today. Skipping incremental.")
+            return False
+
+        # 2. 뉴스 수집
+        news_list = self.news_collector.collect_news(name)
+        
+        # 3. LLM 프롬프트 구성
+        prompt = f"""
+        다음은 현재 실시간 급등 순위에 새로 진입한 주식 '{name}'({code})과 관련 뉴스입니다.
+        
+        [뉴스 헤드라인]
+        {json.dumps(news_list, ensure_ascii=False, indent=2)}
+        
+        [현재 활성화된 테마 목록]
+        {existing_themes_text}
+        
+        [지시사항]
+        이 종목이 위 '현재 활성화된 테마' 중 하나에 강력하게 속한다면 그 테마 ID를 반환하세요.
+        만약 속하지 않고, 이 종목만의 새로운 강력한 '단기 이슈/테마'가 있다면 새로운 테마명으로 정의하세요.
+        단순한 등락이나 특별한 이유가 없다면 "None"을 반환하세요.
+        
+        [응답 형식 (JSON Only)]
+        {{
+            "action": "JOIN" | "CREATE" | "NONE",
+            "theme_id": 123 (JOIN일 경우 테마 ID),
+            "new_theme_name": "새로운 테마명 (CREATE일 경우)",
+            "new_theme_desc": "새로운 테마 설명 (CREATE일 경우)",
+            "reason": "테마 편입 또는 생성 이유 (한 문장)"
+        }}
+        """
+
+        # 4. LLM 호출
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a financial analyst. Respond only in JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=False
+            )
+            
+            content = response.choices[0].message.content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+            
+            result = json.loads(content)
+            
+            action = result.get("action")
+            reason = result.get("reason", "")
+            
+            print(f"[ThemeService] LLM Decision for {name}: {action}")
+            
+            if action == "NONE":
+                return False
+                
+            # 5. DB 업데이트 (Sync to Async)
+            await sync_to_async(self._save_incremental_result)(code, name, result, today)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Incremental Analysis Failed: {e}")
+            print(f"Error ({name}): {e}")
+            return False
+
+    def _save_incremental_result(self, code, name, result, today):
+        action = result.get("action")
+        reason = result.get("reason", "")
+        
+        stock_obj, _ = StockInfo.objects.get_or_create(
+            short_code=code, defaults={'name': name}
+        )
+        
+        if action == "JOIN":
+            theme_id = result.get("theme_id")
+            try:
+                theme_obj = Theme.objects.get(id=theme_id)
+                # 이미 있는지 확인
+                if not ThemeStock.objects.filter(theme=theme_obj, stock=stock_obj).exists():
+                    ThemeStock.objects.create(theme=theme_obj, stock=stock_obj, reason=reason)
+                    print(f"[ThemeService] Joined existing theme: {theme_obj.name}")
+            except Theme.DoesNotExist:
+                print(f"[ThemeService] Theme ID {theme_id} not found.")
+
+        elif action == "CREATE":
+            new_name = result.get("new_theme_name")
+            new_desc = result.get("new_theme_desc")
+            if new_name:
+                theme_obj = Theme.objects.create(
+                    name=new_name,
+                    description=new_desc,
+                    date=today
+                )
+                ThemeStock.objects.create(theme=theme_obj, stock=stock_obj, reason=reason)
+                print(f"[ThemeService] Created new theme: {new_name}")

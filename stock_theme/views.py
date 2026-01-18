@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.views.generic import ListView
 from .models import Theme
+import json
 
 from stock_price.services.kis_rest_client import kis_rest_client
 from stock_price.utils import is_market_open
@@ -45,7 +46,7 @@ class ThemeHeatmapView(ListView):
             if rank_data:
                 for item in rank_data:
                     # Key compatibility: Handle both upper and lower case cases just in case
-                    code = item.get('stck_shrt_cd') or item.get('STCK_SHRT_CD')
+                    code = item.get('stck_shrt_cd') or item.get('STCK_SHRT_CD') or item.get('stck_shrn_iscd') or item.get('STCK_SHRN_ISCD')
                     name = item.get('hts_kor_isnm') or item.get('HTS_KOR_ISNM') or code
                     rate = item.get('prdy_ctrt') or item.get('PRDY_CTRT') or "0.00"
                     current_price = item.get('stck_prpr') or item.get('STCK_PRPR') or "-"
@@ -87,17 +88,23 @@ class ThemeHeatmapView(ListView):
             with ThreadPoolExecutor(max_workers=10) as executor:
                 future_to_code = {executor.submit(fetch_price, code): code for code in stock_codes}
                 for future in as_completed(future_to_code):
-                    code, data = future.result()
-                    if data:
-                        initial_price_data[code] = {
-                            'rate': data.get('prdy_ctrt', '0.00'),
-                            'current_price': data.get('stck_prpr', '0'),
-                            'volume': data.get('acml_vol', '0'),
-                        }
+                    try:
+                        code, data = future.result()
+                        if data:
+                            initial_price_data[code] = {
+                                'rate': data.get('prdy_ctrt', '0.00'),
+                                'current_price': data.get('stck_prpr', '0'),
+                                'volume': data.get('acml_vol', '0'),
+                            }
+                    except Exception as exc:
+                        print(f"Stock fetch generated an exception: {exc}")
+                        
             print(f"[Heatmap] Fallback Fetch Complete. Loaded {len(initial_price_data)} stocks.")
 
+        # Final Context Data
+
         context['is_market_open'] = is_market_open()
-        context['target_stock_codes'] = list(stock_codes)
-        context['top_30_list'] = top_30_list
-        context['initial_price_data'] = initial_price_data
+        context['target_stock_codes'] = json.dumps(list(stock_codes))
+        context['top_30_list'] = json.dumps(top_30_list)
+        context['initial_price_data'] = json.dumps(initial_price_data)
         return context

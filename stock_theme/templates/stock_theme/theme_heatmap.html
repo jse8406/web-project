@@ -47,7 +47,7 @@
                 <article class="theme-card" data-theme-id="{{ theme.id }}">
                     <div class="theme-header">
                         <div class="theme-title">
-                            <span class="icon">🚀</span> {{ theme.name }}
+                            <span class="icon"></span> {{ theme.name }}
                         </div>
                         <a href="#" class="detail-link">></a>
                     </div>
@@ -82,8 +82,6 @@
                 <div class="placeholder-text">
                     <p>테마나 종목을 선택하면<br>상세 분석 위젯이 여기에 표시됩니다.</p>
                     <ul class="guide-list">
-                        <li>• AI & 반도체는 최근 휴게 리포트 영향으로...</li>
-                        <li>• 이차전지는 00번째 수주 공시가...</li>
                     </ul>
                 </div>
             </div>
@@ -96,5 +94,14 @@
 <script type="application/json" id="target-stocks-data">
         {{ target_stock_codes|safe }}
     </script>
-<script src="{% static 'stock_theme/js/theme_heatmap.js' %}?v=1.2"></script>
+<script type="application/json" id="top-30-list-data">
+        {{ top_30_list|safe }}
+    </script>
+<script type="application/json" id="initial-price-data">
+        {{ initial_price_data|safe }}
+    </script>
+<script type="application/json" id="is-market-open">
+        {{ is_market_open|yesno:"true,false" }}
+    </script>
+<script src="{% static 'stock_theme/js/theme_heatmap.js' %}?v=1.6"></script>
 {% endblock %}

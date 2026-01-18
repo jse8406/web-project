@@ -4,13 +4,13 @@ Django REST Framework와 한국투자증권(KIS) Open API를 활용한 실시간
 
 ## 🚀 주요 기능
 
-### 1. 🔥 실시간 테마 히트맵 (Real-time Theme Heatmap)
+### 1. 🔥 실시간 테마 히트맵
 - **URL**: `/stock/theme/heatmap/`
 - 오늘의 주도 테마와 해당 테마에 속한 종목들을 시각적인 히트맵으로 제공합니다.
-- **초고속 로딩 (Hybrid Loading)**:
+- **초고속 로딩**:
     - **초기 로딩**: 서버 사이드 렌더링(SSR) 시 Ranking API를 활용해 0초 만에 시세 데이터를 표시
     - **실시간 업데이트**: 웹소켓을 통해 실세 없이 가격 변동 반영
-- **지능형 데이터 로딩 (Smart Fallback)**:
+- **지능형 데이터 로딩**:
     - 주말/휴일에는 Ranking API 데이터 부재 시, 자동으로 개별 조회를 수행하여 "0.00%" 현상 방지
     - 휴장일에는 웹소켓 연결을 자동으로 차단하여 리소스 절약
 
@@ -25,11 +25,11 @@ Django REST Framework와 한국투자증권(KIS) Open API를 활용한 실시간
 
 ---
 
-## 📚 문서화 (Documentation)
+## 📚 문서화
 
 이 프로젝트의 상세한 API 구조와 아키텍처는 별도 문서로 관리됩니다.
-- **[API 아키텍처 문서 (docs/api_architecture.md)](docs/api_architecture.md)**: 내부 API, 외부 KIS API 연동 구조, 웹소켓 및 데이터 흐름도
-- **[실시간 테마 동기화 설계 (docs/realtime_sync.md)](docs/realtime_sync.md)**: 실시간 랭킹과 테마 분석 간의 동기화 전략 (Monitor & Diff)
+- **[API 아키텍처 문서](docs/api_architecture.md)**: 내부 API, 외부 KIS API 연동 구조, 웹소켓 및 데이터 흐름도
+- **[실시간 테마 동기화 설계](docs/realtime_sync.md)**: 실시간 랭킹과 테마 분석 간의 동기화 전략
 
 ---
 
@@ -54,20 +54,20 @@ web-project/
 ## 🚀 설치 및 실행
 
 ### 1. 가상환경 및 패키지 설치
+(runserver.bat 실행 시 불필요)
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Redis 실행 (필수)
+### 2. Redis 실행
 WebSocket 기능을 위해 Redis 서버가 실행 중이어야 합니다.
 
 ### 3. 서버 실행
+가상 환경 활성화 및 redis 서버 구동, django 서버 구동 명령어
 ```bash
-python manage.py runserver
+runserver.bat
 ```
-접속: http://localhost:8000/stock/theme/heatmap/
 
----
-*Developed by Antigravity*
+접속: http://localhost:8000/stock/theme/heatmap/

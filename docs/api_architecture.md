@@ -5,8 +5,8 @@
 ## 1. 시스템 개요
 
 이 시스템은 사용자 경험과 데이터 최신성을 위해 **하이브리드 데이터 로딩 전략**을 사용합니다.
-- **서버 사이드 렌더링 (SSR)**: Django View가 초기 HTML과 JSON 데이터를 생성하여 빠른 첫 화면 로딩을 보장합니다.
-- **클라이언트 하이드레이션 (Client-Side Hydration)**: JavaScript가 전달받은 JSON 데이터를 이용해 시각화 요소(히트맵 등)를 렌더링합니다.
+- **서버 사이드 렌더링**: Django View가 초기 HTML과 JSON 데이터를 생성하여 빠른 첫 화면 로딩을 보장합니다.
+- **클라이언트 하이드레이션**: JavaScript가 전달받은 JSON 데이터를 이용해 시각화 요소(히트맵 등)를 렌더링합니다.
 - **실시간 업데이트**: 시장이 열려있을 때 WebSocket(Django Channels)을 통해 실시간 가격 변동 정보를 푸시합니다.
 
 ## 2. API 데이터 흐름도
@@ -45,7 +45,7 @@ graph TD
 
 ---
 
-## 3. 내부 인터페이스 (Django Views)
+## 3. 내부 인터페이스
 
 프론트엔드에서 호출하는 주요 진입점입니다.
 
@@ -58,7 +58,7 @@ graph TD
 
 ---
 
-## 4. 외부 API 래퍼 (`KISRestClient`)
+## 4. 외부 API 래퍼
 
 `stock_price/services/kis_rest_client.py`에 위치하며, 한국투자증권 Open API를 포장(Wrap)하고 있습니다.
 
@@ -71,7 +71,7 @@ graph TD
 
 ---
 
-## 5. 웹소켓 API (실시간 통신)
+## 5. 웹소켓 API
 
 `stock_price/consumers.py`에 정의되어 있습니다.
 
@@ -87,7 +87,7 @@ graph TD
 
 ## 6. 핵심 로직 및 관계
 
-1.  **지능형 Fallback 메커니즘 (데이터 보장 전략)**:
+1.  **지능형 Fallback 메커니즘**:
     *   `ThemeHeatmapView`는 먼저 **Ranking API (`get_fluctuation_rank`)**를 호출합니다. (가장 빠름)
     *   만약 Ranking API가 빈 값(0건)을 반환하면 (주말, 장전 등), 즉시 **병렬 처리(`ThreadPoolExecutor`)**를 통해 모든 테마 종목의 `get_current_price()`를 개별 조회합니다.
     *   이를 통해 주말이나 휴일에도 "0.00%"가 아닌, **직전 영업일 종가**를 항상 표시합니다.

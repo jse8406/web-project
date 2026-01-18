@@ -84,4 +84,19 @@ class ThemeSyncService:
             self.update_cached_top30(updated_cache)
             logger.info(f"[ThemeSync] Successfully processed & cached: {processed_stocks}")
             
+            # 5. Broadcast Update to WebSocket (Global Group)
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            
+            await channel_layer.group_send(
+                "theme_global",
+                {
+                    "type": "theme_update",
+                    "data": {
+                        "message": "New theme data available",
+                        "new_stocks": processed_stocks
+                    }
+                }
+            )
+            
         return processed_stocks

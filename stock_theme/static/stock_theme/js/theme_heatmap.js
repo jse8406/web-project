@@ -121,7 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         socket.onmessage = function (e) {
             const data = JSON.parse(e.data);
-            if (data.type === 'stock_update') updateStockBlock(data.data);
+            if (data.type === 'stock_update') {
+                updateStockBlock(data.data);
+            } else if (data.type === 'theme_update') {
+                console.log("[WS] Theme Update Received! Reloading...", data);
+                // Simple sync strategy: Reload page to fetch new structure
+                // Use a short delay or toast in future
+                window.location.reload();
+            }
         };
     } else {
         console.log("[WS] Market is Closed. WebSocket connection skipped.");

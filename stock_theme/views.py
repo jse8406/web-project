@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.views.generic import ListView
 from .models import Theme
 import json
+from django.db.models import Count
 
 from stock_price.services.kis_rest_client import kis_rest_client
 from stock_price.utils import is_market_open
@@ -12,19 +13,53 @@ class DailyThemeListView(ListView):
     context_object_name = 'themes'
     
     def get_queryset(self):
-        # 최신 날짜순, 같은 날짜 내에서는 분석 시각 역순
-        return Theme.objects.prefetch_related('stocks', 'stocks__stock').all()
+        # 1. Get Selected Date from URL
+        selected_date_str = self.request.GET.get('date')
+        
+        # 2. Base Queryset
+        queryset = Theme.objects.prefetch_related('stocks', 'stocks__stock').all()
+        
+        # 3. Filter
+        if selected_date_str:
+            queryset = queryset.filter(date=selected_date_str)
+        else:
+            # Default to the latest date available
+            latest_theme = Theme.objects.order_by('-date').first()
+            if latest_theme:
+                queryset = queryset.filter(date=latest_theme.date)
+                
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get list of available dates for the dropdown/navigation
+        # ValuesList returns distinct dates, ordered by latest first
+        dates = Theme.objects.values_list('date', flat=True).distinct().order_by('-date')
+        
+        # Current selected date
+        selected_date = self.request.GET.get('date')
+        if not selected_date and dates:
+            selected_date = str(dates[0])
+            
+        context['available_dates'] = dates
+        context['selected_date'] = selected_date
+        return context
 
 class ThemeHeatmapView(ListView):
     template_name = 'stock_theme/theme_heatmap.html'
     context_object_name = 'themes'
+
+
 
     def get_queryset(self):
         # 오늘(혹은 가장 최신) 날짜의 테마들만 가져옴 (Meta ordering이 -date이므로 first가 최신)
         last_theme = Theme.objects.first()
         if not last_theme:
             return Theme.objects.none()
-        return Theme.objects.filter(date=last_theme.date).prefetch_related('stocks', 'stocks__stock')
+        
+        # [Filter] Show only themes with >= 3 stocks (Major Themes)
+        return Theme.objects.filter(date=last_theme.date).annotate(stock_count=Count('stocks')).filter(stock_count__gte=3).prefetch_related('stocks', 'stocks__stock')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -69,10 +104,16 @@ class ThemeHeatmapView(ListView):
         except Exception as e:
             print(f"Error fetching top 30 rank in heatmap view: {e}")
 
-        # [Fallback Logic] If Ranking API returned no data (e.g. Weekend), fetch individual prices manually.
-        # This prevents the "0.00%" issue when Ranking API is silent.
-        if not top_30_list:
-            print("[Heatmap] Ranking API returned empty. Falling back to individual stock price fetching...")
+        # [Supplementary Logic] Fetch prices for stocks NOT in the Ranking/Top30
+        # If Ranking API returned data, it only covers ~30 stocks. 
+        # But we might have other stocks in our Themes that are not in Top 30.
+        # We need to fetch their initial prices too, otherwise they show 0.00% until WS updates.
+        
+        current_keys = set(initial_price_data.keys())
+        missing_codes = stock_codes - current_keys
+
+        if missing_codes:
+            print(f"[Heatmap] Fetching {len(missing_codes)} missing stock prices...")
             from concurrent.futures import ThreadPoolExecutor, as_completed
             
             def fetch_price(code):
@@ -84,9 +125,9 @@ class ThemeHeatmapView(ListView):
                     pass
                 return code, None
 
-            # Fetch for ALL target stock codes (Theme stocks)
+            # Fetch for MISSING stock codes only
             with ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_code = {executor.submit(fetch_price, code): code for code in stock_codes}
+                future_to_code = {executor.submit(fetch_price, code): code for code in missing_codes}
                 for future in as_completed(future_to_code):
                     try:
                         code, data = future.result()
@@ -99,7 +140,7 @@ class ThemeHeatmapView(ListView):
                     except Exception as exc:
                         print(f"Stock fetch generated an exception: {exc}")
                         
-            print(f"[Heatmap] Fallback Fetch Complete. Loaded {len(initial_price_data)} stocks.")
+            print(f"[Heatmap] Supplementary Fetch Complete.")
 
         # Final Context Data
 

@@ -1,6 +1,6 @@
 import logging
 from django.core.cache import cache
-from stock_theme.services import ThemeAnalyzeService
+from .analyze_service import ThemeAnalyzeService
 from stock_theme.models import Theme, ThemeStock
 from stock_price.models import StockInfo
 
@@ -53,7 +53,34 @@ class ThemeSyncService:
         if not new_entrants_codes:
             # 변경 없음
             return []
+
+        # [Cold Start Check]
+        from datetime import date
+        today = date.today()
+        # Sync-to-Async DB check
+        from asgiref.sync import sync_to_async
+        themes_exist = await sync_to_async(Theme.objects.filter(date=today).exists)()
+
+        if not themes_exist:
+            logger.info("[ThemeSync] No themes found for today. Triggering FULL BATCH analysis.")
+            await self.analyze_service.analyze_and_save_themes()
             
+            # Update cache with ALL current codes (since we just analyzed them all)
+            all_current_codes = {item['stck_shrn_iscd'] for item in current_rank_data if 'stck_shrn_iscd' in item}
+            self.update_cached_top30(all_current_codes)
+            
+            # Broadcast Refresh
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            await channel_layer.group_send(
+                "theme_global",
+                {
+                    "type": "theme_update",
+                    "data": {"message": "Full theme analysis completed", "new_stocks": []}
+                }
+            )
+            return list(all_current_codes)
+
         logger.info(f"[ThemeSync] New entrants detected: {new_entrants_codes}")
         
         processed_stocks = []

@@ -1,8 +1,6 @@
 import os
 import json
 import logging
-import urllib.request
-import urllib.parse
 from datetime import date
 from asgiref.sync import sync_to_async
 from django.db import transaction
@@ -10,62 +8,9 @@ from openai import OpenAI
 from stock_price.services.kis_rest_client import kis_rest_client
 from stock_theme.models import Theme, ThemeStock
 from stock_price.models import StockInfo
+from .news_collector import NewsCollector
 
 logger = logging.getLogger(__name__)
-
-class NewsCollector:
-    """
-    종목별 관련 뉴스를 수집하는 클래스.
-    현재는 실제 뉴스 API가 연결되지 않았으므로, 
-    1) 추후 Naver/Google API 연동을 위한 인터페이스 정의
-    2) (임시) 종목명 기반의 더미 뉴스 데이터 생성 
-    역할을 수행합니다.
-    """
-    def _fetch_naver_news(self, query, display, sort):
-        client_id = os.getenv("naver_client_id")
-        client_secret = os.getenv("naver_secret")
-        
-        if not client_id or not client_secret:
-            return []
-
-        try:
-            enc_text = urllib.parse.quote(query)
-            url = f"https://openapi.naver.com/v1/search/news?query={enc_text}&display={display}&sort={sort}"
-            
-            request = urllib.request.Request(url)
-            request.add_header("X-Naver-Client-Id", client_id)
-            request.add_header("X-Naver-Client-Secret", client_secret)
-            
-            response = urllib.request.urlopen(request, timeout=5)
-            if response.getcode() == 200:
-                data = json.loads(response.read().decode('utf-8'))
-                items = data.get('items', [])
-                
-                cleaned_items = []
-                for item in items:
-                    title = item['title'].replace('<b>', '').replace('</b>', '').replace('&quot;', '"')
-                    desc = item['description'].replace('<b>', '').replace('</b>', '').replace('&quot;', '"')
-                    cleaned_items.append(f"{title}") # 제목 위주로 전달 (요약은 LLM이)
-                return cleaned_items
-            return []
-        except Exception as e:
-            logger.error(f"Naver API Error ({sort}): {e}")
-            return []
-
-    def collect_news(self, stock_name):
-        # 1. 관련도순 4개 (핵심 이슈 파악)
-        sim_news = self._fetch_naver_news(stock_name, 4, 'sim')
-        
-        # 2. 최신순 2개 (속보성 이슈 파악)
-        date_news = self._fetch_naver_news(stock_name, 2, 'date')
-        
-        # 중복 제거 및 합치기
-        all_news = list(dict.fromkeys(sim_news + date_news))
-        
-        if not all_news:
-             return [f"{stock_name} (Mock) 뉴스 데이터...", f"{stock_name} 관련 이슈 (Mock)"]
-             
-        return all_news
 
 class ThemeAnalyzeService:
     def __init__(self):
@@ -231,9 +176,11 @@ class ThemeAnalyzeService:
         {existing_themes_text}
         
         [지시사항]
-        이 종목이 위 '현재 활성화된 테마' 중 하나에 강력하게 속한다면 그 테마 ID를 반환하세요.
+        이 종목이 위 '현재 활성화된 테마' 중 하나에 강력하게 속한다면 그 **테마 ID(숫자)만** 반환하세요.
         만약 속하지 않고, 이 종목만의 새로운 강력한 '단기 이슈/테마'가 있다면 새로운 테마명으로 정의하세요.
         단순한 등락이나 특별한 이유가 없다면 "None"을 반환하세요.
+        
+        **주의**: 'reason' 필드에는 테마 ID나 내부 시스템 정보를 절대 언급하지 마세요. 사용자가 이해할 수 있는 자연어 설명만 포함하세요.
         
         [응답 형식 (JSON Only)]
         {{
@@ -256,13 +203,16 @@ class ThemeAnalyzeService:
                 stream=False
             )
             
-            content = response.choices[0].message.content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.endswith("```"):
-                content = content[:-3]
-            
-            result = json.loads(content)
+            # Robust JSON extraction using Regex
+            import re
+            match = re.search(r'(\{.*\})', content, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+                result = json.loads(json_str)
+            else:
+                # Fallback: Try raw content if regex fails
+                result = json.loads(content)
+
             
             action = result.get("action")
             reason = result.get("reason", "")

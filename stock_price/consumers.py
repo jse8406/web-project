@@ -22,7 +22,43 @@ class StockConsumer(AsyncWebsocketConsumer):
         if self.url_stock_code:
             await self.add_subscription(self.url_stock_code)
 
-    # ... (receive & add_subscription methods unchanged) ...
+    async def receive(self, text_data):
+        text_data_json = json.loads(text_data)
+        message_type = text_data_json.get('type')
+        data = text_data_json.get('data')
+
+        if message_type == 'subscribe' and data:
+            codes = data.get('codes', [])
+            if isinstance(codes, str):
+                codes = [codes]
+            
+            for code in codes:
+                await self.add_subscription(code)
+
+    async def add_subscription(self, code):
+        clean_code = re.sub(r'[^0-9]', '', str(code))
+        if not clean_code: 
+            return
+
+        if clean_code in self.subscribed_stocks:
+            return
+
+        # 1. 룸(Group) 가입
+        group_name = f"stock_{clean_code}"
+        await self.channel_layer.group_add(
+            group_name,
+            self.channel_name
+        )
+
+        # 2. 마스터에게 구독 요청 (실제 KIS 웹소켓 연결 관리)
+        await kis_client.subscribe(clean_code)
+
+        self.subscribed_stocks.add(clean_code)
+        
+        if clean_code not in self._logged_stocks:
+             print(f"[StockConsumer] Subscribe requested for {clean_code}. Group: {group_name}")
+             self._logged_stocks.add(clean_code)
+
 
     async def disconnect(self, close_code):
         # Global Group Discard

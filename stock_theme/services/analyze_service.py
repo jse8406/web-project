@@ -10,17 +10,9 @@ from stock_price.services.kis_rest_client import kis_rest_client
 from stock_theme.models import Theme, ThemeStock
 from stock_price.models import StockInfo
 from .news_collector import NewsCollector
-
-from .news_collector import NewsCollector
-
-try:
-    from langsmith import traceable
-except ImportError:
-    # Fallback if langsmith is not installed
-    def traceable(*args, **kwargs):
-        def decorator(func):
-            return func
-        return decorator
+from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -165,23 +157,47 @@ class ThemeAnalyzeService:
         
         today = date.today()
 
-        # 0. 중복 분석 방지: 이미 오늘자 테마에 소속되어 있다면 분석 스킵
-        # Themes created today that contain this stock
-        already_processed = await sync_to_async(ThemeStock.objects.filter(
-            stock__short_code=code, 
-            theme__date=today
-        ).exists)()
+        # [Distributed Lock] Prevent parallel processing for the same stock
+        lock_id = f"processing_lock:{today}:{code}"
+        # cache.add returns True if key didn't exist (Lock Acquired), False if existed (Locked)
+        is_locked = await sync_to_async(cache.add)(lock_id, "locked", timeout=60)
+        
+        if not is_locked:
+            print(f"[ThemeService] SKIP: {name} ({code}) is currently being processed by another worker.")
+            return False
 
-        if already_processed:
-            print(f"[ThemeService] SKIP: {name} ({code}) is already in a theme today.")
-            return True
+        try:
+            # 0. 중복 분석 방지: 이미 오늘자 테마에 소속되어 있다면 분석 스킵
+            # Themes created today that contain this stock
+            already_processed = await sync_to_async(ThemeStock.objects.filter(
+                stock__short_code=code, 
+                theme__date=today
+            ).exists)()
+    
+            if already_processed:
+                print(f"[ThemeService] SKIP: {name} ({code}) is already in a theme today.")
+                return True
+                
+            # ... (Rest of the analysis logic)
+        except Exception as e:
+            logger.error(f"Analysis Error: {e}")
+            return False
+        finally:
+            # Release Lock
+            await sync_to_async(cache.delete)(lock_id)
 
         # 1. 오늘 날짜의 기존 테마 목록 조회 (Sync to Async)
         existing_themes = await sync_to_async(list)(Theme.objects.filter(date=today))
         
         existing_themes_prompt = []
         for t in existing_themes:
-            existing_themes_prompt.append(f"- ID {t.id}: {t.name} ({t.description})")
+            # Optimize Context: Truncate description to reduce context bloat
+            # Take first sentence or max 100 chars
+            short_desc = t.description.split('.')[0] 
+            if len(short_desc) > 100:
+                short_desc = short_desc[:100] + "..."
+            
+            existing_themes_prompt.append(f"- ID {t.id}: {t.name} ({short_desc})")
             
         existing_themes_text = "\n".join(existing_themes_prompt)
         
@@ -222,6 +238,10 @@ class ThemeAnalyzeService:
         2. Critique: Check against existing themes and guidelines.
         3. Decision: Final Output.
         """
+        # Dynamic Trace Naming for clearer UI in LangSmith
+        rt = get_current_run_tree()
+        if rt:
+            rt.name = f"Theme Analysis - {name} ({code})"
         
         # Step 1: Hypothesis & Critique (Chain-of-Thought Prompt)
         prompt = f"""

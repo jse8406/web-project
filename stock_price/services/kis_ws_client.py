@@ -110,7 +110,7 @@ class KISWebSocketClient:
                     SerializerClass = StockResponseSerializer
 
                 if SerializerClass and stock_code:
-                    # 실제 API 응답에는 ^ 문자가 섞여올 때가 있음
+                    # ^ 문자열로 정보가 구분되어 옴
                     clean_code = stock_code.split("^")[0]
                     
                     parsed_dict = SerializerClass.parse_from_raw(data)

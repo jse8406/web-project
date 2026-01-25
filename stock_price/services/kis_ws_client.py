@@ -32,11 +32,11 @@ class KISWebSocketClient:
         self.running = False
         self.task = None
 
-    async def get_approval_key(self):
+    async def _get_approval_key(self):
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, get_approval_key)
 
-    async def connect_and_run(self):
+    async def _connect_and_run(self):
         if self.running: return
 
         self.running = True
@@ -45,7 +45,7 @@ class KISWebSocketClient:
         while self.running:
             try:
                 if not self.approval_key:
-                    self.approval_key = await self.get_approval_key()
+                    self.approval_key = await self._get_approval_key()
                     if not self.approval_key:
                         await asyncio.sleep(5)
                         continue
@@ -56,12 +56,12 @@ class KISWebSocketClient:
                     print("[KIS Client] Connected to KIS WebSocket!")
 
                     # 재연결 시 기존에 시청자가 있는 종목들 다시 구독
-                    await self.resubscribe_all()
+                    await self._resubscribe_all()
 
                     while self.running:
                         try:
                             data = await ws.recv()
-                            await self.handle_message(data)
+                            await self._handle_message(data)
                         except websockets.ConnectionClosed:
                             print("[KIS Client] Connection closed.")
                             break
@@ -75,15 +75,15 @@ class KISWebSocketClient:
                 self.connected = False
                 self.ws = None
     
-    def is_elw(self, stock_code):
+    def _is_elw(self, stock_code):
         if stock_code.isdigit() and len(stock_code) == 6: return False
         if any(ord('가') <= ord(c) <= ord('힣') for c in stock_code): return False
         return any(c.isalpha() for c in stock_code) or stock_code.endswith('W')
 
-    def get_hoga_tr_id(self, stock_code):
-        return TR_ID_HOGA_ELW if self.is_elw(stock_code) else TR_ID_HOGA
+    def _get_hoga_tr_id(self, stock_code):
+        return TR_ID_HOGA_ELW if self._is_elw(stock_code) else TR_ID_HOGA
 
-    async def handle_message(self, data):
+    async def _handle_message(self, data):
         # 핑퐁 등 시스템 메시지 처리
         if isinstance(data, str) and data.startswith("{"):
             try:
@@ -138,11 +138,11 @@ class KISWebSocketClient:
 
             # 이 종목의 '첫 번째' 시청자일 때만 실제 API 구독 요청
             if count == 1:
-                await self.send_subscription_packet(stock_code)
+                await self._send_subscription_packet(stock_code)
             
             # 백그라운드 태스크 시작 확인
             if not self.running or (self.task and self.task.done()):
-                self.task = asyncio.create_task(self.connect_and_run())
+                self.task = asyncio.create_task(self._connect_and_run())
 
     async def unsubscribe(self, stock_code):
         """Consumer가 호출: 구독 취소 (카운팅 적용)"""
@@ -158,18 +158,18 @@ class KISWebSocketClient:
             # 빈번한 해제를 막기 위해 그냥 둬도 됩니다. 
             # 일단은 카운트만 줄이는 것으로 충분합니다.
 
-    async def resubscribe_all(self):
+    async def _resubscribe_all(self):
         """재연결 시 시청자가 있는 종목만 다시 구독"""
         for code, count in self._subscriber_counts.items():
             if count > 0:
-                await self.send_subscription_packet(code)
+                await self._send_subscription_packet(code)
 
-    async def send_subscription_packet(self, stock_code):
+    async def _send_subscription_packet(self, stock_code):
         if not self.ws or not self.connected or not self.approval_key:
             return
 
         # 1. 호가 등록
-        hoga_tr_id = self.get_hoga_tr_id(stock_code)
+        hoga_tr_id = self._get_hoga_tr_id(stock_code)
         payload_hoga = StockRequestSerializer.build_payload(
             self.approval_key, hoga_tr_id, stock_code
         )

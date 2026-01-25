@@ -17,14 +17,14 @@ class ThemeSyncService:
     def __init__(self):
         self.analyze_service = ThemeAnalyzeService()
 
-    def get_cached_top30(self):
+    def _get_cached_top30(self):
         """Redis에서 이전에 분석했던 Top 30 종목 코드 집합(Set)을 가져온다."""
         cached_data = cache.get(self.CACHE_KEY_TOP30)
         if cached_data is None:
             return set()
         return cached_data
 
-    def update_cached_top30(self, stock_codes_list):
+    def _update_cached_top30(self, stock_codes_list):
         """새로운 Top 30 리스트로 캐시를 갱신한다."""
         cache.set(self.CACHE_KEY_TOP30, set(stock_codes_list), self.CACHE_TIMEOUT)
 
@@ -46,7 +46,7 @@ class ThemeSyncService:
 
         # 1. Diff Calculation
         current_codes = {item['stck_shrn_iscd'] for item in current_rank_data if 'stck_shrn_iscd' in item}
-        cached_codes = self.get_cached_top30()
+        cached_codes = self._get_cached_top30()
         
         new_entrants_codes = current_codes - cached_codes
         
@@ -67,7 +67,7 @@ class ThemeSyncService:
             
             # Update cache with ALL current codes (since we just analyzed them all)
             all_current_codes = {item['stck_shrn_iscd'] for item in current_rank_data if 'stck_shrn_iscd' in item}
-            self.update_cached_top30(all_current_codes)
+            self._update_cached_top30(all_current_codes)
             
             # Broadcast Refresh
             from channels.layers import get_channel_layer
@@ -108,7 +108,7 @@ class ThemeSyncService:
         # 단, 계속 실패하면 무한 루프 돌 수 있으므로 별도 '실패 캐시' 관리 필요하지만 일단 단순화.
         if processed_stocks:
             updated_cache = cached_codes.union(set(processed_stocks))
-            self.update_cached_top30(updated_cache)
+            self._update_cached_top30(updated_cache)
             logger.info(f"[ThemeSync] Successfully processed & cached: {processed_stocks}")
             
             # 5. Broadcast Update to WebSocket (Global Group)

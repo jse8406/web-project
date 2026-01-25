@@ -1,74 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'base.html' %}
+{% load static %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>실시간 호가</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
-</head>
+{% block title %}실시간 호가{% endblock %}
 
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="control-panel">
-                <div class="search-group">
-                    <div style="position:relative; width:100%;">
-                        <input type="text" id="stock-code-input" placeholder="종목코드 또는 종목명 입력" value="삼성전자">
-                        <input type="hidden" id="selected-short-code" value="">
-                        <div id="autocomplete-list" class="autocomplete-list" aria-hidden="true" style="display:none;">
-                        </div>
-                    </div>
-                    <button id="connect-btn">조회</button>
-                    <button id="disconnect-btn" class="disconnect">중단</button>
-                </div>
-                <div class="nav-group">
-                    <button id="detail-btn" style="background-color: #6c757d;">상세 정보</button>
-                    <button id="ranking-btn" style="background-color: #4e5968;"
-                        data-url="{% url 'stock_price:stock_ranking' %}" onclick="location.href=this.dataset.url">순위
-                        보기</button>
-                </div>
-            </div>
-            <div id="status" style="font-size: 13px; color: #8b95a1;">연결 대기중...</div>
-        </div>
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
+<style>
+    .container {
+        animation: fadeIn 0.5s ease-out;
+        width: 100%;
+        max-width: 800px; /* Adjust as needed for this specific view */
+        margin: 0 auto;
+        padding: 20px;
+    }
 
-        <div class="hoga-container">
-            <!-- 매도 호가 (위) -->
-            <table>
-                <colgroup>
-                    <col width="35%">
-                    <col width="30%">
-                    <col width="35%">
-                </colgroup>
-                <tbody id="ask-table-body">
-                    <!-- JS로 렌더링 -->
-                </tbody>
-            </table>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
 
-            <!-- 현재가 정보 (중간) -->
-            <div class="current-status">
-                <div id="current-price" class="current-price-value">-</div>
-                <div id="current-price-diff" class="diff">-</div>
-            </div>
-
-            <!-- 매수 호가 (아래) -->
-            <table>
-                <colgroup>
-                    <col width="35%">
-                    <col width="30%">
-                    <col width="35%">
-                </colgroup>
-                <tbody id="bid-table-body">
-                    <!-- JS로 렌더링 -->
-                </tbody>
-            </table>
-        </div>
+{% block content %}
+<div class="container">
+    <div class="header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin:0;">실시간 호가/체결</h2>
+        <a href="{% url 'stock_theme:theme_heatmap' %}" style="text-decoration: none; color: #888; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;">← Home</a>
     </div>
 
+    <div class="header">
+        <div class="control-panel">
+            <div class="search-group">
+                <div style="position:relative; width:100%;">
+                    <input type="text" id="stock-code-input" placeholder="종목코드 또는 종목명 입력" value="삼성전자">
+                    <input type="hidden" id="selected-short-code" value="">
+                    <div id="autocomplete-list" class="autocomplete-list" aria-hidden="true" style="display:none;">
+                    </div>
+                </div>
+                <button id="connect-btn">조회</button>
+                <button id="disconnect-btn" class="disconnect">중단</button>
+            </div>
+            <div class="stock-nav-group">
+                <button id="detail-btn" style="background-color: #6c757d;">상세 정보</button>
+                <button id="ranking-btn" style="background-color: #4e5968;"
+                    data-url="{% url 'stock_price:stock_ranking' %}" onclick="location.href=this.dataset.url">순위
+                    보기</button>
+            </div>
+        </div>
+        <div id="status" style="font-size: 13px; color: #8b95a1;">연결 대기중...</div>
+    </div>
 
-    <script src="{% static 'stock_price/js/stock_utils.js' %}"></script>
-    <script src="{% static 'stock_price/js/stock_realtime.js' %}"></script>
-</body>
+    <div class="hoga-container">
+        <!-- 매도 호가 (위) -->
+        <table>
+            <colgroup>
+                <col width="35%">
+                <col width="30%">
+                <col width="35%">
+            </colgroup>
+            <tbody id="ask-table-body">
+                <!-- JS로 렌더링 -->
+            </tbody>
+        </table>
 
-</html>
+        <!-- 현재가 정보 (중간) -->
+        <div class="current-status">
+            <div id="current-price" class="current-price-value">-</div>
+            <div id="current-price-diff" class="diff">-</div>
+        </div>
+
+        <!-- 매수 호가 (아래) -->
+        <table>
+            <colgroup>
+                <col width="35%">
+                <col width="30%">
+                <col width="35%">
+            </colgroup>
+            <tbody id="bid-table-body">
+                <!-- JS로 렌더링 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'stock_price/js/stock_utils.js' %}"></script>
+<script src="{% static 'stock_price/js/stock_realtime.js' %}"></script>
+{% endblock %}

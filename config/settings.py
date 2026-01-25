@@ -139,7 +139,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    BASE_DIR / 'api/static',
+    # BASE_DIR / 'api/static',
 ]
 
 # Default primary key field type

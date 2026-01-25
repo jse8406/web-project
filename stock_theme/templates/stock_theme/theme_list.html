@@ -1,79 +1,206 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="ko">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Today's Market Themes - AI Analysis</title>
-    <!-- Use Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'stock_theme/css/theme_list.css' %}">
-</head>
+{% block title %}Today's Market Themes - AI Analysis{% endblock %}
 
-<body>
-    <div class="container">
-        <header>
-            <h1>Today's Market Themes</h1>
-            <p class="subtitle">AI가 분석한 오늘의 증시 주요 테마와 급등 사유</p>
-        </header>
+{% block extra_css %}
+<!-- Use Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="{% static 'stock_theme/css/theme_list.css' %}">
+<style>
+    /* Content Animation */
+    .container {
+        animation: slideIn 0.5s ease-out;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
 
-        {% if available_dates %}
-        <div class="date-nav">
-            <label for="date-select">날짜 선택:</label>
-            <form method="get" action="" style="display:inline-block;">
-                <select name="date" id="date-select" onchange="this.form.submit()">
-                    {% for dt in available_dates %}
-                    <option value="{{ dt|date:'Y-m-d' }}" {% if dt|date:"Y-m-d" == selected_date %}selected{% endif %}>
-                        {{ dt }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
-        </div>
-        {% endif %}
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
-        {% if themes %}
-        <div class="theme-grid">
-            {% for theme in themes %}
-            <div class="theme-card">
-                <span class="theme-date">{{ theme.created_at|date:"H:i" }} 분석</span>
-                <h2 class="theme-title">{{ theme.name }}</h2>
-                <p class="theme-desc">{{ theme.description }}</p>
+    /* Date Navigation Styling */
+    .date-nav {
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .date-select-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    
+    /* Custom Date Input Trigger Styling */
+    .date-input {
+        background-color: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 10px 16px; 
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        min-width: 220px; /* Slightly wider for formatted date */
+        height: 48px;
+        text-align: left;
+        
+        /* Prevent text selection */
+        user-select: none;
+        -webkit-user-select: none;
+        caret-color: transparent;
+        
+        /* Icon placement via background image for better control than ::after */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238b95a1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'%3F%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 16px center;
+        background-size: 20px;
+    }
 
-                <div class="stock-list">
-                    {% for theme_stock in theme.stocks.all %}
-                    <div class="stock-item-wrapper">
-                        <div class="stock-item">
-                            <div>
-                                <span class="stock-name">{{ theme_stock.stock.name }}</span>
-                                <span class="stock-code">{{ theme_stock.stock.short_code }}</span>
-                                {% if theme_stock.created_at %}
-                                <span class="stock-time" style="color: #888; font-size: 0.8em; margin-left: 5px;">{{ theme_stock.created_at|date:"H:i" }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
+    .date-input:hover {
+        border-color: #bdc1c6;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
 
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="no-data">
-            <h2>해당 날짜에 분석된 테마가 없습니다.</h2>
-        </div>
-        {% endif %}
+    .date-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.15);
+    }
+    
+    /* Flatpickr Customization (Toss Blue Theme) */
+    .flatpickr-calendar {
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        border: none;
+        font-family: 'Pretendard', 'Inter', sans-serif;
+        padding: 10px;
+    }
+    
+    .flatpickr-months .flatpickr-month {
+        height: 50px;
+    }
+    
+    .flatpickr-current-month {
+        font-weight: 700;
+        font-size: 110%;
+    }
+    
+    .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, 
+    .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange, 
+    .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus, 
+    .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover, 
+    .flatpickr-day.selected.prevMonthDay, .flatpickr-day.startRange.prevMonthDay, .flatpickr-day.endRange.prevMonthDay, 
+    .flatpickr-day.selected.nextMonthDay, .flatpickr-day.startRange.nextMonthDay, .flatpickr-day.endRange.nextMonthDay {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        font-weight: 600;
+    }
+    
+    .flatpickr-day.today {
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+    }
+    
+    .flatpickr-day.today:hover {
+        background: #f0f6ff;
+        color: var(--accent-color);
+    }
+    
+    .flatpickr-day:hover {
+        background: #f2f4f6;
+    }
+    
+    .flatpickr-weekday {
+        color: #8b95a1;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header style="margin-bottom: 30px;">
+        <h1 style="font-size: 28px; font-weight: 800; color: #191f28; margin-bottom: 8px;">Today's Market Themes</h1>
+        <p style="color: #8b95a1; font-size: 16px;">AI가 분석한 오늘의 증시 주요 테마와 급등 사유</p>
+    </header>
+
+    <div class="date-nav">
+        <!-- Using a form requires Flatpickr to update a hidden input or the main input properly -->
+        <form method="get" action="" class="date-select-wrapper" id="date-form">
+            <input type="text" 
+                   id="custom-date-picker" 
+                   class="date-input" 
+                   name="date"
+                   value="{{ selected_date }}" 
+                   readonly
+                   placeholder="날짜 선택">
+        </form>
     </div>
 
-    <script>
-        // Optional: Add simple styling for the select box if needed via JS or keep it native
-    </script>
-</body>
+    {% if themes %}
+    <div class="theme-grid">
+        {% for theme in themes %}
+        <div class="theme-card">
+            <span class="theme-date">{{ theme.created_at|date:"H:i" }} 분석</span>
+            <h2 class="theme-title">{{ theme.name }}</h2>
+            <p class="theme-desc">{{ theme.description }}</p>
 
-</html>
+            <div class="stock-list">
+                {% for theme_stock in theme.stocks.all %}
+                <div class="stock-item-wrapper">
+                    <div class="stock-item">
+                        <div>
+                            <span class="stock-name">{{ theme_stock.stock.name }}</span>
+                            <span class="stock-code">{{ theme_stock.stock.short_code }}</span>
+                            {% if theme_stock.created_at %}
+                            <span class="stock-time" style="color: #888; font-size: 0.8em; margin-left: 5px;">{{ theme_stock.created_at|date:"H:i" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-data">
+        <h2>해당 날짜에 분석된 테마가 없습니다.</h2>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Flatpickr JS & Locale -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        flatpickr("#custom-date-picker", {
+            locale: "ko",              // Korean locale
+            dateFormat: "Y-m-d",       // Value format for server
+            altInput: true,            // Show alternative format to user
+            altFormat: "Y년 m월 d일",   // Pretty format: 2024년 1월 24일
+            defaultDate: "{{ selected_date }}",
+            maxDate: "today",          // Disable future dates
+            disableMobile: "true",     // Force custom picker on mobile too
+            onChange: function(selectedDates, dateStr, instance) {
+                // Submit the form when a date is picked
+                document.getElementById('date-form').submit();
+            }
+        });
+    });
+</script>
+{% endblock %}

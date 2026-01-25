@@ -1,144 +1,122 @@
-<!DOCTYPE html>
-<html lang="km">
+{% extends 'base.html' %}
+{% load static %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>실시간 종목 순위</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
-    <link rel="stylesheet" href="{% static 'stock_price/css/ranking.css' %}">
+{% block title %}실시간 종목 순위{% endblock %}
 
-</head>
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
+<link rel="stylesheet" href="{% static 'stock_price/css/ranking.css' %}">
+<style>
+    .ranking-container {
+        animation: fadeIn 0.5s ease-in-out;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px;
+    }
 
-<body>
-    <div class="ranking-container">
-        <div class="ranking-header">
-            <h1 class="ranking-title">실시간 시장 트렌드</h1>
-            <a href="{% url 'stock_price:stock_realtime' %}"
-                style="text-decoration: none; color: #3182f6; font-size: 14px; font-weight: 600;">홈으로 가기 &gt;</a>
-        </div>
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+</style>
+{% endblock %}
 
-        <div class="tab-menu">
-            <button class="tab-btn active" onclick="showTab('fluctuation', event)">🚀 급상승 종목</button>
-            <button class="tab-btn" onclick="showTab('volume', event)">🔥 거래량 상위</button>
-            <button class="tab-btn" onclick="showTab('theme', event)">✨ 오늘의 테마</button>
-        </div>
-
-        <!-- 등락률 상위 -->
-        <div id="fluctuation" class="section-wrapper active">
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th style="width: 60px; text-align: center;">순위</th>
-                        <th>종목명</th>
-                        <th class="price-align">현재가</th>
-                        <th class="price-align">등락률</th>
-                        <th class="price-align">거래량</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in rank_fluctuation %}
-                    <tr>
-                        <td class="rank-num {% if forloop.counter <= 3 %}rank-top{% endif %}">{{ forloop.counter }}</td>
-                        <td class="stock-name-cell"
-                            onclick="location.href='/stock_price/stock/detail/{{ item.stck_shrn_iscd }}/'">
-                            {{ item.hts_kor_isnm }} <span
-                                style="font-size:12px; color:#999;">{{item.stck_shrn_iscd}}</span>
-                        </td>
-                        <td class="price-align">{{ item.stck_prpr }}</td>
-                        <td class="price-align">
-                            <span
-                                class="{% if item.prdy_vrss_sign == '1' or item.prdy_vrss_sign == '2' %}up{% elif item.prdy_vrss_sign == '4' or item.prdy_vrss_sign == '5' %}down{% endif %}">
-                                {{ item.prdy_ctrt }}%
-                            </span>
-                        </td>
-                        <td class="price-align">{{ item.acml_vol }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #888;">데이터를 불러올 수 없습니다.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- 거래량 상위 -->
-        <div id="volume" class="section-wrapper">
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th style="width: 60px; text-align: center;">순위</th>
-                        <th>종목명</th>
-                        <th class="price-align">현재가</th>
-                        <th class="price-align">등락률</th>
-                        <th class="price-align">거래량</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in rank_volume %}
-                    <tr>
-                        <td class="rank-num {% if forloop.counter <= 3 %}rank-top{% endif %}">{{ forloop.counter }}</td>
-                        <td class="stock-name-cell"
-                            onclick="location.href='/stock_price/stock/detail/{{ item.mksc_shrn_iscd }}/'">
-                            {{ item.hts_kor_isnm }} <span
-                                style="font-size:12px; color:#999;">{{item.mksc_shrn_iscd}}</span>
-                        </td>
-                        <td class="price-align">{{ item.stck_prpr }}</td>
-                        <td class="price-align">
-                            <span
-                                class="{% if item.prdy_vrss_sign == '1' or item.prdy_vrss_sign == '2' %}up{% elif item.prdy_vrss_sign == '4' or item.prdy_vrss_sign == '5' %}down{% endif %}">
-                                {{ item.prdy_ctrt }}%
-                            </span>
-                        </td>
-                        <td class="price-align">{{ item.acml_vol }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #888;">데이터를 불러올 수 없습니다.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- 테마 순위 비활성화 -->
-        <!--
-        <div id="theme" class="section-wrapper">
-            <div class="theme-grid">
-                {% for theme in rank_theme %}
-                <div class="theme-card {% if theme.is_rising %}card-up{% else %}card-down{% endif %}">
-                    <span class="theme-icon">
-                        {% if theme.name|first == "반" %}💾
-                        {% elif theme.name|first == "2" %}🔋
-                        {% elif theme.name|first == "자" %}🚗
-                        {% elif theme.name|first == "인" %}📱
-                        {% elif theme.name|first == "바" %}🧬
-                        {% elif theme.name|first == "엔" %}🎵
-                        {% elif theme.name|first == "금" %}💰
-                        {% elif theme.name|first == "방" %}🛡️
-                        {% else %}📈{% endif %}
-                    </span>
-                    <span class="theme-name">{{ theme.name }}</span>
-                    <span class="theme-rate">
-                        {% if theme.is_rising %}+{% endif %}{{ theme.rate }}%
-                    </span>
-                    <span class="theme-desc">평균 등락률</span>
-                </div>
-                {% empty %}
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #888;">
-                    테마 데이터를 불러올 수 없습니다.
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        -->
-
+{% block content %}
+<div class="ranking-container">
+    <div class="ranking-header">
+        <h1 class="ranking-title">실시간 시장 트렌드</h1>
+        <!-- Home button preserved as requested -->
+        <a href="{% url 'stock_theme:theme_heatmap' %}"
+            style="display: inline-flex; align-items: center; text-decoration: none; color: #aaa; font-size: 14px; font-weight: 500; padding: 6px 12px; border: 1px solid #333; border-radius: 6px; transition: all 0.2s;">
+            <span>← 홈으로</span>
+        </a>
     </div>
 
-    <script src="{% static 'stock_price/js/ranking.js' %}"></script>
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="showTab('fluctuation', event)">🚀 급상승 종목</button>
+        <button class="tab-btn" onclick="showTab('volume', event)">🔥 거래량 상위</button>
+    </div>
 
-</body>
+    <!-- 등락률 상위 -->
+    <div id="fluctuation" class="section-wrapper active">
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px; text-align: center;">순위</th>
+                    <th>종목명</th>
+                    <th class="price-align">현재가</th>
+                    <th class="price-align">등락률</th>
+                    <th class="price-align">거래량</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in rank_fluctuation %}
+                <tr>
+                    <td class="rank-num {% if forloop.counter <= 3 %}rank-top{% endif %}">{{ forloop.counter }}</td>
+                    <td class="stock-name-cell"
+                        onclick="location.href='/stock_price/stock/detail/{{ item.stck_shrn_iscd }}/'">
+                        {{ item.hts_kor_isnm }} <span
+                            style="font-size:12px; color:#999;">{{item.stck_shrn_iscd}}</span>
+                    </td>
+                    <td class="price-align">{{ item.stck_prpr }}</td>
+                    <td class="price-align">
+                        <span
+                            class="{% if item.prdy_vrss_sign == '1' or item.prdy_vrss_sign == '2' %}up{% elif item.prdy_vrss_sign == '4' or item.prdy_vrss_sign == '5' %}down{% endif %}">
+                            {{ item.prdy_ctrt }}%
+                        </span>
+                    </td>
+                    <td class="price-align">{{ item.acml_vol }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 40px; color: #888;">데이터를 불러올 수 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-</html>
+    <!-- 거래량 상위 -->
+    <div id="volume" class="section-wrapper">
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px; text-align: center;">순위</th>
+                    <th>종목명</th>
+                    <th class="price-align">현재가</th>
+                    <th class="price-align">등락률</th>
+                    <th class="price-align">거래량</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in rank_volume %}
+                <tr>
+                    <td class="rank-num {% if forloop.counter <= 3 %}rank-top{% endif %}">{{ forloop.counter }}</td>
+                    <td class="stock-name-cell"
+                        onclick="location.href='/stock_price/stock/detail/{{ item.mksc_shrn_iscd }}/'">
+                        {{ item.hts_kor_isnm }} <span
+                            style="font-size:12px; color:#999;">{{item.mksc_shrn_iscd}}</span>
+                    </td>
+                    <td class="price-align">{{ item.stck_prpr }}</td>
+                    <td class="price-align">
+                        <span
+                            class="{% if item.prdy_vrss_sign == '1' or item.prdy_vrss_sign == '2' %}up{% elif item.prdy_vrss_sign == '4' or item.prdy_vrss_sign == '5' %}down{% endif %}">
+                            {{ item.prdy_ctrt }}%
+                        </span>
+                    </td>
+                    <td class="price-align">{{ item.acml_vol }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 40px; color: #888;">데이터를 불러올 수 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'stock_price/js/ranking.js' %}"></script>
+{% endblock %}

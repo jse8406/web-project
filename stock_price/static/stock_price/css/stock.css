@@ -1,9 +1,4 @@
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: #f9f9f9;
-    margin: 0;
-    padding: 20px;
-}
+/* Body styles removed to prevent conflict with base.html layout */
 
 .container {
     max-width: 480px;
@@ -37,12 +32,12 @@ body {
     flex: 1;
 }
 
-.nav-group {
+.stock-nav-group {
     display: flex;
     gap: 8px;
 }
 
-.nav-group button {
+.stock-nav-group button {
     flex: 1;
 }
 

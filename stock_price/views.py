@@ -53,16 +53,14 @@ class StockRankingView(View):
 
     async def get(self, request, *args, **kwargs):
         # 비동기로 API 호출 (병렬 처리)
-        rank_fluctuation, rank_volume, rank_theme = await asyncio.gather(
+        rank_fluctuation, rank_volume = await asyncio.gather(
             kis_rest_client.get_fluctuation_rank(),
             kis_rest_client.get_volume_rank(),
-            kis_rest_client.get_theme_rank()
         )
 
         context = {
             "rank_fluctuation": rank_fluctuation if rank_fluctuation else [],
             "rank_volume": rank_volume if rank_volume else [],
-            "rank_theme": rank_theme if rank_theme else [],
         }
 
         return TemplateResponse(request, self.template_name, context)

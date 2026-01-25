@@ -1,19 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'base.html' %}
+{% load static %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>종목 현재가</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
-    <link rel="stylesheet" href="{% static 'stock_price/css/detail.css' %}">
-</head>
+{% block title %}종목 상세 - {{ stock_name }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'stock_price/css/stock.css' %}">
+<link rel="stylesheet" href="{% static 'stock_price/css/detail.css' %}">
+<style>
+    /* Animation for smooth appearance */
+    .detail-container {
+        animation: fadeIn 0.5s ease-out;
+    }
 
-<body>
-    <div class="detail-container">
-        <div class="detail-header">
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Home Button Style */
+    .home-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        background-color: #333;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        margin-right: 15px;
+        transition: background 0.2s;
+    }
+    .home-btn:hover {
+        background-color: #444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <div class="detail-header">
+        <div style="display: flex; align-items: center;">
+            <a href="{% url 'stock_theme:theme_heatmap' %}" class="home-btn">← Home</a>
             <div class="stock-title">
                 {% if stock_data %}
                 {{ stock_name }} ({{ stock_code }})
@@ -21,120 +48,121 @@
                 종목 정보 없음 ({{ stock_code }})
                 {% endif %}
             </div>
-            <div class="search-box" style="position: relative;">
-                {% if stock_data %}
-                <a href="/stock_price/stock/?code={{ stock_code }}&name={{ stock_name }}"
-                    style="text-decoration:none; padding: 8px 15px; background-color: #6c757d; color: white; border-radius: 4px; border: none; font-size: 13.3333px; margin-right: 5px; display: flex; align-items: center;">실시간
-                    호가</a>
-                {% endif %}
-                <input type="text" id="stock-code-input" placeholder="종목코드/명 (예: 삼성전자)" value="{{ stock_name }}"
-                    autocomplete="off">
-                <button onclick="searchStock()">조회</button>
-                <div id="autocomplete-list" class="autocomplete-list" style="display:none;"></div>
-            </div>
         </div>
-
-        {% if stock_data %}
-        <div class="section-title">기본 시세</div>
-        <div class="info-grid">
-            <div class="info-card">
-                <div class="info-label">현재가</div>
-                <div class="info-value">{{ stock_data.stck_prpr }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">전일대비</div>
-                <div class="info-value">{{ stock_data.prdy_vrss }} ({{ stock_data.prdy_ctrt }}%)</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">거래량</div>
-                <div class="info-value">{{ stock_data.acml_vol }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">거래대금</div>
-                <div class="info-value">{{ stock_data.acml_tr_pbmn }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">시가</div>
-                <div class="info-value">{{ stock_data.stck_oprc }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">고가</div>
-                <div class="info-value red">{{ stock_data.stck_hgpr }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">저가</div>
-                <div class="info-value blue">{{ stock_data.stck_lwpr }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">상한가 / 하한가</div>
-                <div class="info-value"><span class="red">{{ stock_data.stck_mxpr }}</span> / <span
-                        class="blue">{{stock_data.stck_llam }}</span></div>
-            </div>
+        
+        <div class="search-box" style="position: relative;">
+            {% if stock_data %}
+            <a href="/stock_price/stock/?code={{ stock_code }}&name={{ stock_name }}"
+                style="text-decoration:none; padding: 8px 15px; background-color: #6c757d; color: white; border-radius: 4px; border: none; font-size: 13.3333px; margin-right: 5px; display: flex; align-items: center;">실시간
+                호가</a>
+            {% endif %}
+            <input type="text" id="stock-code-input" placeholder="종목코드/명 (예: 삼성전자)" value="{{ stock_name }}"
+                autocomplete="off">
+            <button onclick="searchStock()">조회</button>
+            <div id="autocomplete-list" class="autocomplete-list" style="display:none;"></div>
         </div>
-
-        <div class="section-title">투자 지표</div>
-        <div class="info-grid">
-            <div class="info-card">
-                <div class="info-label">PER / EPS</div>
-                <div class="info-value">{{ stock_data.per }} / {{ stock_data.eps }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">PBR / BPS</div>
-                <div class="info-value">{{ stock_data.pbr }} / {{ stock_data.bps }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">시가총액</div>
-                <div class="info-value">{{ stock_data.hts_avls }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">상장주수</div>
-                <div class="info-value">{{ stock_data.lstn_stcn }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">외국인 소진율</div>
-                <div class="info-value">{{ stock_data.hts_frgn_ehrt }}%</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">52주 최고/최저</div>
-                <div class="info-value">{{ stock_data.w52_hgpr }} / {{ stock_data.w52_lwpr }}</div>
-            </div>
-        </div>
-
-        <div class="section-title">기타 정보</div>
-        <div class="info-grid">
-            <div class="info-card">
-                <div class="info-label">업종</div>
-                <div class="info-value">{{ stock_data.bstp_kor_isnm }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">주식 상태</div>
-                <div class="info-value">{{ stock_data.iscd_stat_cls_code }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">액면가</div>
-                <div class="info-value">{{ stock_data.stck_fcam }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">자본금</div>
-                <div class="info-value">{{ stock_data.cpfn }}</div>
-            </div>
-        </div>
-
-        <div style="margin-top:20px; text-align:center;">
-            <a href="/stock_price/stock/detail/{{ stock_code }}/" style="text-decoration:none; color:#007bff;">새로고침</a>
-        </div>
-
-        {% else %}
-        <div style="padding: 50px; text-align: center; color: #666;">
-            데이터를 불러오지 못했습니다. 종목코드를 확인해주세요.
-        </div>
-        {% endif %}
-
     </div>
 
-    <script src="{% static 'stock_price/js/stock_utils.js' %}"></script>
-    <script src="{% static 'stock_price/js/detail.js' %}"></script>
+    {% if stock_data %}
+    <div class="section-title">기본 시세</div>
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-label">현재가</div>
+            <div class="info-value">{{ stock_data.stck_prpr }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">전일대비</div>
+            <div class="info-value">{{ stock_data.prdy_vrss }} ({{ stock_data.prdy_ctrt }}%)</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">거래량</div>
+            <div class="info-value">{{ stock_data.acml_vol }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">거래대금</div>
+            <div class="info-value">{{ stock_data.acml_tr_pbmn }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">시가</div>
+            <div class="info-value">{{ stock_data.stck_oprc }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">고가</div>
+            <div class="info-value red">{{ stock_data.stck_hgpr }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">저가</div>
+            <div class="info-value blue">{{ stock_data.stck_lwpr }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">상한가 / 하한가</div>
+            <div class="info-value"><span class="red">{{ stock_data.stck_mxpr }}</span> / <span
+                    class="blue">{{stock_data.stck_llam }}</span></div>
+        </div>
+    </div>
 
-</body>
+    <div class="section-title">투자 지표</div>
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-label">PER / EPS</div>
+            <div class="info-value">{{ stock_data.per }} / {{ stock_data.eps }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">PBR / BPS</div>
+            <div class="info-value">{{ stock_data.pbr }} / {{ stock_data.bps }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">시가총액</div>
+            <div class="info-value">{{ stock_data.hts_avls }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">상장주수</div>
+            <div class="info-value">{{ stock_data.lstn_stcn }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">외국인 소진율</div>
+            <div class="info-value">{{ stock_data.hts_frgn_ehrt }}%</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">52주 최고/최저</div>
+            <div class="info-value">{{ stock_data.w52_hgpr }} / {{ stock_data.w52_lwpr }}</div>
+        </div>
+    </div>
 
-</html>
+    <div class="section-title">기타 정보</div>
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-label">업종</div>
+            <div class="info-value">{{ stock_data.bstp_kor_isnm }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">주식 상태</div>
+            <div class="info-value">{{ stock_data.iscd_stat_cls_code }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">액면가</div>
+            <div class="info-value">{{ stock_data.stck_fcam }}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-label">자본금</div>
+            <div class="info-value">{{ stock_data.cpfn }}</div>
+        </div>
+    </div>
+
+    <div style="margin-top:20px; text-align:center;">
+        <a href="/stock_price/stock/detail/{{ stock_code }}/" style="text-decoration:none; color:#007bff;">새로고침</a>
+    </div>
+
+    {% else %}
+    <div style="padding: 50px; text-align: center; color: #666;">
+        데이터를 불러오지 못했습니다. 종목코드를 확인해주세요.
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'stock_price/js/stock_utils.js' %}"></script>
+<script src="{% static 'stock_price/js/detail.js' %}"></script>
+{% endblock %}

@@ -176,6 +176,30 @@ class KISRestClient:
                 print(f"[Stock Service] Current price request error: {e}")
                 return None
 
+    async def get_current_price_async(self, iscd):
+        """특정 종목 현재가 조회 (Async version)"""
+        headers = self._get_headers("FHKST01010100")
+        if not headers: return None
+
+        url = f"{self.domain}/uapi/domestic-stock/v1/quotations/inquire-price"
+
+        params = {
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": iscd
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers, params=params, timeout=10)
+                data = response.json()
+                if data.get('rt_cd') == '0':
+                    return data.get('output', {})
+                else:
+                    return None
+            except Exception as e:
+                print(f"[Stock Service] Current price request error: {e}")
+                return None
+
     def get_market_operation_status(self):
         """
         시장 운영 상태 조회 (API)

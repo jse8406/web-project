@@ -139,8 +139,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    # BASE_DIR / 'api/static',
+    BASE_DIR / 'static',
 ]
+
+# Destination for collectstatic (Ignored by git)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field

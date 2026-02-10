@@ -110,6 +110,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     position: relative;
     background-color: var(--bg-body);
 }

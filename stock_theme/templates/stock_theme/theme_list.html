@@ -29,6 +29,7 @@
         margin-bottom: 30px;
         display: flex;
         align-items: center;
+        justify-content: center;
     }
     
     .date-select-wrapper {
@@ -124,6 +125,36 @@
         color: #8b95a1;
         font-weight: 600;
     }
+
+    .day-nav-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        margin: 0 4px;
+        background-color: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+    .day-nav-btn:hover {
+        border-color: #bdc1c6;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .day-nav-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+        background-color: #f2f4f6;
+    }
 </style>
 {% endblock %}
 
@@ -135,50 +166,54 @@
     </header>
 
     <div class="date-nav">
+        <button id="prev-day" class="day-nav-btn" title="이전 날짜">&lt;</button>
         <!-- Using a form requires Flatpickr to update a hidden input or the main input properly -->
-        <form method="get" action="" class="date-select-wrapper" id="date-form">
-            <input type="text" 
-                   id="custom-date-picker" 
-                   class="date-input" 
+        <form method="get" action="" class="date-select-wrapper" id="date-form" style="margin: 0 8px;">
+            <input type="text"
+                   id="custom-date-picker"
+                   class="date-input"
                    name="date"
-                   value="{{ selected_date }}" 
+                   value="{{ selected_date }}"
                    readonly
                    placeholder="날짜 선택">
         </form>
+        <button id="next-day" class="day-nav-btn" title="다음 날짜">&gt;</button>
     </div>
 
-    {% if themes %}
-    <div class="theme-grid">
-        {% for theme in themes %}
-        <div class="theme-card">
-            <span class="theme-date">{{ theme.created_at|date:"H:i" }} 분석</span>
-            <h2 class="theme-title">{{ theme.name }}</h2>
-            <p class="theme-desc">{{ theme.description }}</p>
+    <div class="content-wrapper">
+        {% if themes %}
+        <div class="theme-grid">
+            {% for theme in themes %}
+            <div class="theme-card">
+                <span class="theme-date">{{ theme.created_at|date:"H:i" }} 분석</span>
+                <h2 class="theme-title">{{ theme.name }}</h2>
+                <p class="theme-desc">{{ theme.description }}</p>
 
-            <div class="stock-list">
-                {% for theme_stock in theme.stocks.all %}
-                <div class="stock-item-wrapper">
-                    <div class="stock-item">
-                        <div>
-                            <span class="stock-name">{{ theme_stock.stock.name }}</span>
-                            <span class="stock-code">{{ theme_stock.stock.short_code }}</span>
-                            {% if theme_stock.created_at %}
-                            <span class="stock-time" style="color: #888; font-size: 0.8em; margin-left: 5px;">{{ theme_stock.created_at|date:"H:i" }}</span>
-                            {% endif %}
+                <div class="stock-list">
+                    {% for theme_stock in theme.stocks.all %}
+                    <div class="stock-item-wrapper">
+                        <div class="stock-item">
+                            <div>
+                                <span class="stock-name">{{ theme_stock.stock.name }}</span>
+                                <span class="stock-code">{{ theme_stock.stock.short_code }}</span>
+                                {% if theme_stock.created_at %}
+                                <span class="stock-time" style="color: #888; font-size: 0.8em; margin-left: 5px;">{{ theme_stock.created_at|date:"H:i" }}</span>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
 
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% else %}
+        <div class="no-data">
+            <h2>해당 날짜에 분석된 테마가 없습니다.</h2>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <div class="no-data">
-        <h2>해당 날짜에 분석된 테마가 없습니다.</h2>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
 
@@ -188,19 +223,78 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // --- Flatpickr setup (no changes) ---
         flatpickr("#custom-date-picker", {
-            locale: "ko",              // Korean locale
-            dateFormat: "Y-m-d",       // Value format for server
-            altInput: true,            // Show alternative format to user
-            altFormat: "Y년 m월 d일",   // Pretty format: 2024년 1월 24일
+            locale: "ko",
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "Y년 m월 d일",
             defaultDate: "{{ selected_date }}",
-            maxDate: "today",          // Disable future dates
-            disableMobile: "true",     // Force custom picker on mobile too
+            maxDate: "today",
+            disableMobile: "true",
             onChange: function(selectedDates, dateStr, instance) {
-                // Submit the form when a date is picked
                 document.getElementById('date-form').submit();
             }
         });
+
+        // --- Day navigation logic (REVISED) ---
+        const prevDayBtn = document.getElementById('prev-day');
+        const nextDayBtn = document.getElementById('next-day');
+
+        const selectedDateStr = "{{ selected_date }}";
+        console.log("페이지 로드 시 선택된 날짜 (문자열):", selectedDateStr);
+
+        if (selectedDateStr) {
+            // More robust date parsing: 'YYYY-MM-DD' -> Date object
+            // This avoids timezone issues that `new Date('YYYY-MM-DD')` can have.
+            const parts = selectedDateStr.split('-').map(part => parseInt(part, 10));
+            // Note: Month is 0-indexed in JavaScript Date, so parts[1] - 1.
+            const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            console.log("파싱된 Date 객체:", selectedDate);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+            // Disable next day button if needed
+            if (selectedDate >= today) {
+                nextDayBtn.disabled = true;
+                console.log("'다음' 버튼 비활성화됨 (오늘 또는 미래 날짜)");
+            }
+
+            prevDayBtn.addEventListener('click', () => {
+                console.log("'이전' 버튼 클릭됨");
+                // Use the already parsed 'selectedDate'
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() - 1);
+                
+                // Format YYYY-MM-DD for the URL
+                const newDateStr = newDate.getFullYear() + '-' + ('0' + (newDate.getMonth() + 1)).slice(-2) + '-' + ('0' + newDate.getDate()).slice(-2);
+                
+                console.log("이동할 날짜:", newDateStr);
+                window.location.href = `?date=${newDateStr}`;
+            });
+
+            nextDayBtn.addEventListener('click', () => {
+                console.log("'다음' 버튼 클릭됨");
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + 1);
+
+                if (newDate > today) {
+                    console.log("탐색 중단: 다음 날짜가 오늘보다 큽니다.");
+                    return;
+                }
+                
+                const newDateStr = newDate.getFullYear() + '-' + ('0' + (newDate.getMonth() + 1)).slice(-2) + '-' + ('0' + newDate.getDate()).slice(-2);
+
+                console.log("이동할 날짜:", newDateStr);
+                window.location.href = `?date=${newDateStr}`;
+            });
+
+        } else {
+            console.log("선택된 날짜 없음. 버튼 비활성화.");
+            prevDayBtn.disabled = true;
+            nextDayBtn.disabled = true;
+        }
     });
 </script>
 {% endblock %}

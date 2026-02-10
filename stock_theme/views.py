@@ -8,7 +8,12 @@ import asyncio
 from django.db.models import Count
 
 from stock_price.services.kis_rest_client import kis_rest_client
-from stock_price.utils import is_market_open
+from stock_price.utils import is_market_open, is_market_open_async
+
+import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DailyThemeListView(ListView):
     model = Theme
@@ -16,6 +21,8 @@ class DailyThemeListView(ListView):
     context_object_name = 'themes'
     
     def get_queryset(self):
+        start_time = time.time()
+        
         # 1. Get Selected Date from URL
         selected_date_str = self.request.GET.get('date')
         
@@ -29,8 +36,6 @@ class DailyThemeListView(ListView):
                 from django.core.exceptions import ValidationError
                 queryset = queryset.filter(date=selected_date_str)
             except ValidationError:
-                # If date format is invalid, fallback to empty or default behavior (e.g. latest date)
-                # Here we choose to return empty queryset for invalid date to indicate "no data found for this weird date"
                 queryset = queryset.none()
         else:
             # Default to the latest date available
@@ -40,29 +45,35 @@ class DailyThemeListView(ListView):
                 
         # 4. Sort by Stock Count (Descending)
         queryset = queryset.annotate(stock_count=Count('stocks')).order_by('-stock_count', '-created_at')
-                
+        
+        end_time = time.time()
+        logger.info(f"[DailyThemeListView] get_queryset took {end_time - start_time:.4f}s")
         return queryset
 
     def get_context_data(self, **kwargs):
+        start_time = time.time()
         context = super().get_context_data(**kwargs)
-        
-        # Get list of available dates for the dropdown/navigation
-        # ValuesList returns distinct dates, ordered by latest first
-        dates = Theme.objects.values_list('date', flat=True).distinct().order_by('-date')
         
         # Current selected date
         selected_date = self.request.GET.get('date')
-        if not selected_date and dates:
-            selected_date = str(dates[0])
+        if not selected_date:
+            # If no date selected, default to the latest date available
+            latest_theme = Theme.objects.order_by('-date').first()
+            if latest_theme:
+                selected_date = str(latest_theme.date)
             
-        context['available_dates'] = dates
         context['selected_date'] = selected_date
+        
+        end_time = time.time()
+        logger.info(f"[DailyThemeListView] get_context_data took {end_time - start_time:.4f}s")
         return context
 
 class ThemeHeatmapView(View):
     template_name = 'stock_theme/theme_heatmap.html'
 
     async def get(self, request, *args, **kwargs):
+        start_total = time.time()
+        
         # 1. Define Async DB Fetcher
         @sync_to_async
         def get_theme_data():
@@ -85,17 +96,26 @@ class ThemeHeatmapView(View):
             
             return themes_list, codes
 
-        # 2. Parallel Execution: DB Fetch + API Ranking Fetch
-        db_task = asyncio.create_task(get_theme_data())
-        rank_task = asyncio.create_task(kis_rest_client.get_fluctuation_rank())
+        # 2. Fetch DB Data First (Fast enough to await sequentially)
+        step1_start = time.time()
+        latest_themes, stock_codes = await get_theme_data()
+        logger.info(f"[ThemeHeatmapView] DB Fetch took {time.time() - step1_start:.4f}s")
         
-        # Wait for both
-        (latest_themes, stock_codes), rank_data = await asyncio.gather(db_task, rank_task)
+        # 3. Parallel Execution: Rank API + All Theme Stocks Price API + Market Status
+        step2_start = time.time()
         
-        # 3. Process Ranking Data
+        task_rank = asyncio.create_task(kis_rest_client.get_fluctuation_rank())
+        task_prices = asyncio.create_task(kis_rest_client.fetch_prices_batch(list(stock_codes)))
+        task_market = asyncio.create_task(is_market_open_async())
+        
+        rank_data, batch_prices, is_open = await asyncio.gather(task_rank, task_prices, task_market)
+        logger.info(f"[ThemeHeatmapView] Parallel API Fetch (Rank + {len(stock_codes)} Stocks + MarketStatus) took {time.time() - step2_start:.4f}s")
+        
+        # 4. Merge Data
         top_30_list = []
         initial_price_data = {}
         
+        # 4-1. Process Rank Data (For Top 30 List + identifying overlapping stocks)
         if rank_data:
             for item in rank_data:
                 code = item.get('stck_shrt_cd') or item.get('STCK_SHRT_CD') or item.get('stck_shrn_iscd') or item.get('STCK_SHRN_ISCD')
@@ -104,7 +124,6 @@ class ThemeHeatmapView(View):
                 current_price = item.get('stck_prpr') or item.get('STCK_PRPR') or "-"
 
                 if code:
-                    stock_codes.add(code)
                     top_30_list.append({
                         'code': code,
                         'name': name,
@@ -112,26 +131,21 @@ class ThemeHeatmapView(View):
                         'price': current_price
                     })
                     
-                    initial_price_data[code] = {
-                        'rate': rate,
-                        'current_price': current_price,
-                        'volume': '0'
-                    }
+                    # If this stock is in our target theme list, populate price data
+                    if code in stock_codes:
+                        initial_price_data[code] = {
+                            'rate': rate,
+                            'current_price': current_price,
+                            'volume': '0' # Rank API might not give volume in same format, or we ignore
+                        }
         
-        # 4. Fetch Missing Stock Prices (Async)
-        current_keys = set(initial_price_data.keys())
-        missing_codes = list(stock_codes - current_keys)
-        
-        if missing_codes:
-            # Create fetch tasks for all missing codes
-            tasks = [kis_rest_client.get_current_price_async(code) for code in missing_codes]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for code, result in zip(missing_codes, results):
-                if isinstance(result, Exception) or not result:
-                    continue
-                    
-                data = result
+        # 4-2. Process Batch Price Data (Fill in the rest or overwrite)
+        if batch_prices:
+            for code, data in batch_prices.items():
+                # If we prefer the dedicated price API data (usually more detailed), execute this:
+                # Or if we only want to fill missing: if code not in initial_price_data:
+                
+                # Dedicated API (inquire-price) is reliable, so let's use it for all theme stocks
                 initial_price_data[code] = {
                     'rate': data.get('prdy_ctrt', '0.00'),
                     'current_price': data.get('stck_prpr', '0'),
@@ -141,10 +155,11 @@ class ThemeHeatmapView(View):
         # 5. Build Context & Return Response
         context = {
             'themes': latest_themes,
-            'is_market_open': is_market_open(),
+            'is_market_open': is_open,
             'target_stock_codes': json.dumps(list(stock_codes)),
             'top_30_list': json.dumps(top_30_list),
             'initial_price_data': json.dumps(initial_price_data)
         }
         
+        logger.info(f"[ThemeHeatmapView] Total Execution took {time.time() - start_total:.4f}s")
         return TemplateResponse(request, self.template_name, context)

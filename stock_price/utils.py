@@ -24,3 +24,24 @@ def is_market_open():
         return True
     
     return False
+
+async def is_market_open_async():
+    """
+    is_market_open의 비동기 버전
+    """
+    now = datetime.now()
+    now_time = now.time()
+
+    # 1. Check if Today is a Business Day (via Async API)
+    is_business_day = await kis_rest_client.get_market_operation_status_async()
+    if not is_business_day:
+        return False
+
+    # 2. Check Market Hours (09:00 ~ 15:30)
+    market_start = time(9, 0)
+    market_end = time(15, 30)
+
+    if market_start <= now_time <= market_end:
+        return True
+    
+    return False

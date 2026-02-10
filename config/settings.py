@@ -180,3 +180,18 @@ CACHES = {
         }
     }
 }
+
+# 로깅 설정 (Console 출력)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

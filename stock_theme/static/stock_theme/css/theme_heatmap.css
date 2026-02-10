@@ -259,7 +259,7 @@ body {
 .theme-heatmap-body {
     display: flex;
     flex-wrap: wrap;
-    height: 220px;
+    min-height: 220px;
     gap: 6px;
 }
 

@@ -1,5 +1,6 @@
 import httpx
 import os
+import asyncio
 from auth.kis_auth import get_access_token
 from dotenv import load_dotenv
 
@@ -72,43 +73,7 @@ class KISRestClient:
                 print(f"[Stock Service] Request Error: {e}")
                 return None
 
-    def get_fluctuation_rank_sync(self):
-        """등락률 순위 조회 (상위 30개) - Sync version"""
-        headers = self._get_headers("FHPST01700000")
-        if not headers: return None
 
-        url = f"{self.domain}/uapi/domestic-stock/v1/ranking/fluctuation"
-
-        params = {
-            "fid_rsfl_rate2": "",
-            "fid_cond_mrkt_div_code": "J",
-            "fid_cond_scr_div_code": "20170",
-            "fid_input_iscd": "0000",
-            "fid_rank_sort_cls_code": "0", # 0: 상승률순
-            "fid_input_cnt_1": "0",
-            "fid_prc_cls_code": "1",
-            "fid_input_price_1": "",
-            "fid_input_price_2": "",
-            "fid_vol_cnt": "",
-            "fid_trgt_cls_code": "0",
-            "fid_trgt_exls_cls_code": "0",
-            "fid_div_cls_code": "0",
-            "fid_rsfl_rate1": "",
-        }
-
-        with httpx.Client() as client:
-            try:
-                response = client.get(url, headers=headers, params=params, timeout=10)
-                data = response.json()
-
-                if data.get('rt_cd') != '0':
-                    print(f"[Stock Service] Fluctuation Rank Error: {data.get('msg1')}")
-                    return []
-
-                return data.get('output', [])
-            except Exception as e:
-                print(f"[Stock Service] Request Error: {e}")
-                return []
 
     async def get_volume_rank(self):
         """거래량 순위 조회 (상위 30개)"""
@@ -200,6 +165,47 @@ class KISRestClient:
                 print(f"[Stock Service] Current price request error: {e}")
                 return None
 
+    async def fetch_prices_batch(self, code_list):
+        """
+        여러 종목의 현재가를 하나의 세션으로 동시에 조회 (속도 최적화)
+        """
+        if not code_list:
+            return {}
+            
+        headers = self._get_headers("FHKST01010100")
+        if not headers: return {}
+
+        url = f"{self.domain}/uapi/domestic-stock/v1/quotations/inquire-price"
+        results = {}
+        
+        # 하나의 클라이언트 세션을 재사용하여 연결 오버헤드 감소
+        async with httpx.AsyncClient() as client:
+            tasks = []
+            for code in code_list:
+                params = {
+                    "fid_cond_mrkt_div_code": "J",
+                    "fid_input_iscd": code
+                }
+                # 코루틴 객체 생성
+                tasks.append(client.get(url, headers=headers, params=params, timeout=10))
+            
+            # 병렬 실행
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for code, response in zip(code_list, responses):
+                if isinstance(response, Exception):
+                    print(f"[Stock Service] Batch fetch error for {code}: {response}")
+                    continue
+                
+                try:
+                    data = response.json()
+                    if data.get('rt_cd') == '0':
+                        results[code] = data.get('output', {})
+                except Exception as e:
+                    print(f"[Stock Service] Batch response parse error: {e}")
+                    
+        return results
+
     def get_market_operation_status(self):
         """
         시장 운영 상태 조회 (API)
@@ -242,6 +248,43 @@ class KISRestClient:
                     output = data.get('output', [])
                     if output:
                         # Today's status (usually first item or match date)
+                        item = output[0] 
+                        is_open_yn = item.get('opnd_yn', 'N')
+                        return is_open_yn == 'Y'
+                else:
+                    print(f"[Stock Service] Market Status API Error: {data.get('msg1')}")
+            except Exception as e:
+                print(f"[Stock Service] Market Status Request Error: {e}")
+        
+    async def get_market_operation_status_async(self):
+        """
+        시장 운영 상태 조회 (Async API)
+        Returns: True if market is open (mrkt_opnd_yn == 'Y'), False otherwise.
+        """
+        headers = self._get_headers("CTCA0903R")
+        if not headers: return None
+
+        # Standard Holiday Check URL
+        url = f"{self.domain}/uapi/domestic-stock/v1/quotations/chk-holiday"
+        
+        from datetime import datetime
+        today = datetime.now().strftime("%Y%m%d")
+
+        params = {
+            "BASS_DT": today,
+            "CTX_AREA_NK": "",
+            "CTX_AREA_FK": ""
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers, params=params, timeout=5)
+                data = response.json()
+                
+                if data.get('rt_cd') == '0':
+                    output = data.get('output', [])
+                    if output:
+                        # Today's status
                         item = output[0] 
                         is_open_yn = item.get('opnd_yn', 'N')
                         return is_open_yn == 'Y'

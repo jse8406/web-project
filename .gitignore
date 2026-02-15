@@ -51,3 +51,7 @@ dump.rdb
 
 # kis token
 .kis_token_cache.json
+
+# agent
+.agent/
+
